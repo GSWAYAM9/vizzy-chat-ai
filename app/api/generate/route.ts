@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
-const BRIA_V2_BASE = "https://engine.prod.bria-api.com/v2"
-const GENERATE_URL = `${BRIA_V2_BASE}/image/generate`
+// Bria API v2 text-to-image endpoint
+const BRIA_GENERATE_ENDPOINT = "https://engine.prod.bria-api.com/v2/text-to-image/hd/create"
 const MAX_POLL_ATTEMPTS = 60
 const POLL_INTERVAL_MS = 2000
 
@@ -35,14 +35,19 @@ export async function POST(request: NextRequest) {
     const finalAspectRatio = validAspectRatios.includes(aspect_ratio) ? aspect_ratio : "1:1"
     const count = Math.min(Math.max(num_results, 1), 4)
 
+    console.log("[v0] Bria generate called with endpoint:", BRIA_GENERATE_ENDPOINT)
+    console.log("[v0] Payload: prompt length=", prompt.trim().length, "aspect=", finalAspectRatio, "count=", count)
+
     // V2 returns one result per request, so we fire multiple in parallel
     const requests = Array.from({ length: count }, () => {
       const briaPayload: Record<string, unknown> = {
         prompt: prompt.trim(),
-        aspect_ratio: finalAspectRatio,
+        num_results: 1,
         sync: true,
+        aspect_ratio: finalAspectRatio,
         steps_num: 50,
         guidance_scale: 5,
+        model_version: "2.3",
       }
       if (negative_prompt) {
         briaPayload.negative_prompt = negative_prompt
@@ -91,7 +96,8 @@ async function generateSingleImage(
   apiKey: string,
   payload: Record<string, unknown>
 ): Promise<{ url: string; seed?: number }> {
-  const response = await fetch(GENERATE_URL, {
+  console.log("[v0] Fetching from:", BRIA_GENERATE_ENDPOINT, "payload:", JSON.stringify(payload))
+  const response = await fetch(BRIA_GENERATE_ENDPOINT, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -100,9 +106,10 @@ async function generateSingleImage(
     body: JSON.stringify(payload),
   })
 
+  console.log("[v0] Bria response status:", response.status)
   if (!response.ok) {
     const errorText = await response.text()
-    console.error("[Bria API Error]", response.status, errorText)
+    console.error("[v0] Bria API Error:", response.status, errorText)
 
     if (response.status === 429) {
       throw new Error("Rate limit exceeded. Please wait a moment and try again.")
