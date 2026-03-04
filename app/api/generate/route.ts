@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 
-// Bria API v2 text-to-image endpoint
-const BRIA_GENERATE_ENDPOINT = "https://engine.prod.bria-api.com/v2/text-to-image/hd/create"
+// Bria FIBO v2 image generation endpoint
+// Docs: https://docs.bria.ai/image-generation/v2-endpoints → POST /image/generate
+const BRIA_GENERATE_ENDPOINT = "https://engine.prod.bria-api.com/v2/image/generate"
 const MAX_POLL_ATTEMPTS = 60
 const POLL_INTERVAL_MS = 2000
 
@@ -42,12 +43,10 @@ export async function POST(request: NextRequest) {
     const requests = Array.from({ length: count }, () => {
       const briaPayload: Record<string, unknown> = {
         prompt: prompt.trim(),
-        num_results: 1,
         sync: true,
         aspect_ratio: finalAspectRatio,
-        steps_num: 50,
+        steps_num: 30,
         guidance_scale: 5,
-        model_version: "2.3",
       }
       if (negative_prompt) {
         briaPayload.negative_prompt = negative_prompt
