@@ -13,3 +13,13 @@ export interface ChatMessage {
   error?: string
   timestamp: number
 }
+
+export type CreativeMode = "home" | "business"
+
+export interface SuggestionCategory {
+  id: string
+  label: string
+  icon: string
+  mode: CreativeMode
+  suggestions: string[]
+}

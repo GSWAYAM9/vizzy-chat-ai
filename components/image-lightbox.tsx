@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useCallback } from "react"
+import { useEffect, useCallback, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Download, X } from "lucide-react"
+import { Download, X, Copy, Check, ZoomIn, ZoomOut } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface ImageLightboxProps {
   imageUrl: string | null
@@ -11,6 +12,9 @@ interface ImageLightboxProps {
 }
 
 export function ImageLightbox({ imageUrl, prompt, onClose }: ImageLightboxProps) {
+  const [zoomed, setZoomed] = useState(false)
+  const [copied, setCopied] = useState(false)
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose()
@@ -22,6 +26,8 @@ export function ImageLightbox({ imageUrl, prompt, onClose }: ImageLightboxProps)
     if (imageUrl) {
       document.addEventListener("keydown", handleKeyDown)
       document.body.style.overflow = "hidden"
+      setZoomed(false)
+      setCopied(false)
     }
     return () => {
       document.removeEventListener("keydown", handleKeyDown)
@@ -48,49 +54,93 @@ export function ImageLightbox({ imageUrl, prompt, onClose }: ImageLightboxProps)
     }
   }
 
+  const handleCopyPrompt = async () => {
+    await navigator.clipboard.writeText(prompt)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-xl animate-in fade-in-0 duration-200"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="Image preview"
     >
-      <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation()
-            handleDownload()
-          }}
-          className="bg-card/90 backdrop-blur-sm border-border hover:bg-card"
-          aria-label="Download image"
-        >
-          <Download className="size-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onClose}
-          className="bg-card/90 backdrop-blur-sm border-border hover:bg-card"
-          aria-label="Close preview"
-        >
-          <X className="size-4" />
-        </Button>
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4 z-20">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              setZoomed(!zoomed)
+            }}
+            className="bg-card/80 backdrop-blur-md border-border/40 hover:bg-card shadow-sm"
+            aria-label={zoomed ? "Zoom out" : "Zoom in"}
+          >
+            {zoomed ? <ZoomOut className="size-4" /> : <ZoomIn className="size-4" />}
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {prompt && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                handleCopyPrompt()
+              }}
+              className="bg-card/80 backdrop-blur-md border-border/40 hover:bg-card shadow-sm gap-1.5 text-xs"
+            >
+              {copied ? <Check className="size-3.5 text-green-500" /> : <Copy className="size-3.5" />}
+              {copied ? "Copied" : "Copy Prompt"}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleDownload()
+            }}
+            className="bg-card/80 backdrop-blur-md border-border/40 hover:bg-card shadow-sm"
+            aria-label="Download image"
+          >
+            <Download className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={onClose}
+            className="bg-card/80 backdrop-blur-md border-border/40 hover:bg-card shadow-sm"
+            aria-label="Close preview"
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
       </div>
 
+      {/* Image */}
       <div
-        className="relative max-w-[90vw] max-h-[85vh] flex flex-col items-center gap-4"
+        className="relative flex flex-col items-center gap-4 px-4"
         onClick={(e) => e.stopPropagation()}
       >
         <img
           src={imageUrl}
           alt={`Generated: ${prompt}`}
-          className="max-w-full max-h-[78vh] object-contain rounded-xl shadow-2xl"
+          className={cn(
+            "max-h-[80vh] object-contain rounded-2xl shadow-2xl transition-all duration-500 cursor-zoom-in",
+            zoomed ? "max-w-[95vw] cursor-zoom-out" : "max-w-[85vw] md:max-w-[70vw]"
+          )}
+          onClick={() => setZoomed(!zoomed)}
         />
+
         {prompt && (
-          <div className="text-sm text-muted-foreground text-center max-w-md px-4 leading-relaxed">
+          <div className="absolute -bottom-10 text-xs text-muted-foreground/60 text-center max-w-lg px-4 leading-relaxed truncate">
             {prompt}
           </div>
         )}

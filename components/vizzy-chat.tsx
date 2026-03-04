@@ -4,52 +4,37 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { ChatMessage } from "@/components/chat-message"
 import { ChatInput } from "@/components/chat-input"
 import { ImageLightbox } from "@/components/image-lightbox"
-import { Sparkles } from "lucide-react"
+import { WelcomeScreen } from "@/components/welcome-screen"
+import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { Sparkles, Plus, Sun, Moon, Trash2 } from "lucide-react"
+import { useTheme } from "next-themes"
 import type { ChatMessage as ChatMessageType } from "@/lib/types"
-
-const SUGGESTIONS = [
-  "A serene Japanese garden at sunset with cherry blossoms",
-  "Futuristic cityscape with neon lights and flying cars",
-  "Oil painting of a cozy cabin in a snowy forest",
-  "Minimalist product photo of a glass perfume bottle",
-  "Watercolor illustration of a hot air balloon festival",
-  "Cyberpunk portrait of a woman with neon face paint",
-]
 
 function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
 function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): string {
-  // Look at the conversation history to build context
   const previousPrompts = messages
     .filter((m) => m.role === "user")
     .map((m) => m.content)
-    .slice(-3) // Last 3 user messages for context
+    .slice(-3)
 
   const previousImages = messages
     .filter((m) => m.role === "assistant" && m.images && m.images.length > 0)
     .slice(-1)
 
-  // If user is making a refinement request (short message, references previous)
   const refinementWords = [
-    "make it",
-    "change",
-    "more",
-    "less",
-    "add",
-    "remove",
-    "try",
-    "darker",
-    "brighter",
-    "bigger",
-    "smaller",
-    "different",
-    "same but",
-    "like that but",
-    "adjust",
-    "modify",
-    "keep",
+    "make it", "change", "more", "less", "add", "remove", "try",
+    "darker", "brighter", "bigger", "smaller", "different", "same but",
+    "like that but", "adjust", "modify", "keep", "turn it", "transform",
+    "switch", "convert", "instead", "also", "but with", "now make",
+    "could you", "can you", "please make", "update", "tweak",
   ]
 
   const isRefinement = refinementWords.some((word) =>
@@ -57,7 +42,8 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
   )
 
   if (isRefinement && previousPrompts.length > 0 && previousImages.length > 0) {
-    const lastImagePrompt = previousImages[0].images?.[0]?.prompt || previousPrompts[previousPrompts.length - 1]
+    const lastImagePrompt =
+      previousImages[0].images?.[0]?.prompt || previousPrompts[previousPrompts.length - 1]
     return `${lastImagePrompt}. Modification: ${newInput}`
   }
 
@@ -66,10 +52,12 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
 
 function parseNumImages(input: string): number {
   const patterns = [
-    /(\d+)\s*(images?|versions?|variations?|options?|alternatives?)/i,
+    /(\d+)\s*(images?|versions?|variations?|options?|alternatives?|concepts?|ideas?|visuals?)/i,
     /generate\s*(\d+)/i,
     /create\s*(\d+)/i,
     /make\s*(\d+)/i,
+    /show\s*(?:me\s*)?(\d+)/i,
+    /give\s*(?:me\s*)?(\d+)/i,
   ]
 
   for (const pattern of patterns) {
@@ -83,6 +71,29 @@ function parseNumImages(input: string): number {
   return 1
 }
 
+function generateAssistantText(numImages: number, prompt: string): string {
+  if (numImages > 1) {
+    return `Here are ${numImages} variations based on your vision:`
+  }
+
+  // Contextual responses based on intent
+  const lowerPrompt = prompt.toLowerCase()
+  if (lowerPrompt.includes("poster") || lowerPrompt.includes("signage"))
+    return "Here's your design:"
+  if (lowerPrompt.includes("product") || lowerPrompt.includes("photo"))
+    return "Here's the product visual:"
+  if (lowerPrompt.includes("brand") || lowerPrompt.includes("marketing"))
+    return "Here's your brand visual:"
+  if (lowerPrompt.includes("dream") || lowerPrompt.includes("emotion") || lowerPrompt.includes("feel"))
+    return "Here's what I envisioned for you:"
+  if (lowerPrompt.includes("story") || lowerPrompt.includes("scene"))
+    return "Here's the scene I created:"
+  if (lowerPrompt.includes("moodboard") || lowerPrompt.includes("vision board"))
+    return "Here's your moodboard concept:"
+
+  return "Here's what I created for you:"
+}
+
 export function VizzyChat() {
   const [messages, setMessages] = useState<ChatMessageType[]>([])
   const [input, setInput] = useState("")
@@ -91,7 +102,7 @@ export function VizzyChat() {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [lightboxPrompt, setLightboxPrompt] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const chatContainerRef = useRef<HTMLDivElement>(null)
+  const { theme, setTheme } = useTheme()
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -147,14 +158,14 @@ export function VizzyChat() {
         throw new Error(data.error || "Failed to generate image")
       }
 
+      const assistantText = generateAssistantText(data.images.length, refinedPrompt)
+
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMessage.id
             ? {
                 ...m,
-                content: numResults > 1
-                  ? `Here are ${data.images.length} variations for you:`
-                  : "Here's what I created for you:",
+                content: assistantText,
                 images: data.images.map((img: { url: string; seed?: number }) => ({
                   url: img.url,
                   prompt: refinedPrompt,
@@ -166,16 +177,12 @@ export function VizzyChat() {
         )
       )
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Something went wrong"
+      const errorMessage =
+        error instanceof Error ? error.message : "Something went wrong"
       setMessages((prev) =>
         prev.map((m) =>
           m.id === assistantMessage.id
-            ? {
-                ...m,
-                content: "",
-                isLoading: false,
-                error: errorMessage,
-              }
+            ? { ...m, content: "", isLoading: false, error: errorMessage }
             : m
         )
       )
@@ -184,90 +191,106 @@ export function VizzyChat() {
     }
   }, [input, isLoading, messages, aspectRatio])
 
-  const handleSuggestionClick = useCallback(
-    (suggestion: string) => {
-      setInput(suggestion)
-      // Small delay then submit
-      setTimeout(() => {
-        setInput(suggestion)
-      }, 0)
-    },
-    []
-  )
+  const handleSuggestionClick = useCallback((suggestion: string) => {
+    setInput(suggestion)
+  }, [])
 
   const handleRetry = useCallback(
     (messageId: string) => {
-      const failedAssistant = messages.find((m) => m.id === messageId)
-      if (!failedAssistant) return
-
-      // Find the user message before this assistant message
       const msgIndex = messages.findIndex((m) => m.id === messageId)
       if (msgIndex < 1) return
       const userMsg = messages[msgIndex - 1]
       if (userMsg.role !== "user") return
-
       setInput(userMsg.content)
-      // Remove the failed messages
       setMessages((prev) => prev.filter((_, i) => i < msgIndex - 1))
     },
     [messages]
   )
 
+  const handleNewChat = useCallback(() => {
+    setMessages([])
+    setInput("")
+    setIsLoading(false)
+    setLightboxImage(null)
+  }, [])
+
   const hasMessages = messages.length > 0
 
   return (
     <div className="flex flex-col h-dvh bg-background">
-      {/* Header */}
-      <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b bg-card/50 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded-lg bg-accent flex items-center justify-center">
-            <Sparkles className="size-4 text-accent-foreground" />
+      {/* Premium Header */}
+      <header className="flex-shrink-0 flex items-center justify-between px-4 md:px-6 py-3 border-b border-border/60 bg-card/60 backdrop-blur-xl z-10">
+        <div className="flex items-center gap-3">
+          <div className="relative size-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center">
+            <Sparkles className="size-[18px] text-accent" />
           </div>
-          <h1 className="text-base font-semibold font-[family-name:var(--font-heading)] text-foreground tracking-tight">
-            Vizzy
-          </h1>
+          <div className="flex flex-col">
+            <h1 className="text-base font-bold font-[family-name:var(--font-heading)] text-foreground tracking-tight leading-none">
+              Vizzy
+            </h1>
+            <span className="text-[10px] text-muted-foreground/70 tracking-wide uppercase leading-none mt-0.5">
+              Creative Studio
+            </span>
+          </div>
         </div>
-        <div className="text-xs text-muted-foreground">
-          AI Image Generation
+
+        <div className="flex items-center gap-1">
+          {hasMessages && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={handleNewChat}
+                    className="text-muted-foreground hover:text-foreground rounded-xl"
+                    aria-label="New conversation"
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">New chat</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={handleNewChat}
+                    className="text-muted-foreground hover:text-destructive rounded-xl"
+                    aria-label="Clear conversation"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Clear chat</TooltipContent>
+              </Tooltip>
+            </>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                className="text-muted-foreground hover:text-foreground rounded-xl"
+                aria-label="Toggle theme"
+              >
+                <Sun className="size-4 hidden dark:block" />
+                <Moon className="size-4 block dark:hidden" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Toggle theme</TooltipContent>
+          </Tooltip>
         </div>
       </header>
 
       {/* Chat Area */}
-      <div
-        ref={chatContainerRef}
-        className="flex-1 overflow-y-auto scroll-smooth"
-      >
+      <div className="flex-1 overflow-y-auto scroll-smooth">
         {!hasMessages ? (
-          /* Welcome Screen */
-          <div className="flex flex-col items-center justify-center h-full px-4 py-12">
-            <div className="flex flex-col items-center gap-3 mb-10">
-              <div className="size-16 rounded-2xl bg-accent/10 border border-accent/20 flex items-center justify-center">
-                <Sparkles className="size-8 text-accent" />
-              </div>
-              <h2 className="text-2xl font-semibold font-[family-name:var(--font-heading)] text-foreground tracking-tight text-balance text-center">
-                What would you like to create?
-              </h2>
-              <p className="text-sm text-muted-foreground text-center max-w-md leading-relaxed">
-                Describe any image and I will generate it for you. You can
-                iterate, refine, and generate multiple variations.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl w-full">
-              {SUGGESTIONS.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  className="text-left px-4 py-3 rounded-xl border bg-card text-sm text-foreground hover:bg-secondary hover:border-ring/30 transition-colors leading-relaxed"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
+          <WelcomeScreen onSuggestionClick={handleSuggestionClick} />
         ) : (
-          /* Messages */
-          <div className="flex flex-col gap-6 py-6">
+          <div className="flex flex-col gap-5 py-6">
             {messages.map((message) => (
               <ChatMessage
                 key={message.id}
@@ -286,8 +309,8 @@ export function VizzyChat() {
         )}
       </div>
 
-      {/* Input Bar */}
-      <div className="flex-shrink-0 pb-4 pt-2 bg-gradient-to-t from-background via-background to-transparent">
+      {/* Input Area */}
+      <div className="flex-shrink-0 pb-4 pt-2 bg-gradient-to-t from-background via-background/95 to-transparent">
         <ChatInput
           value={input}
           onChange={setInput}
