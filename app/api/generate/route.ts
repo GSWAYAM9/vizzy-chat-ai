@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
+import { v4 as uuidv4 } from "uuid"
 
-// Bria FIBO v2 image generation endpoint
-// Docs: https://docs.bria.ai/image-generation/v2-endpoints → POST /image/generate
-const BRIA_GENERATE_ENDPOINT = "https://engine.prod.bria-api.com/v2/image/generate"
-const MAX_POLL_ATTEMPTS = 60
-const POLL_INTERVAL_MS = 2000
+// Runware API endpoint for image generation
+const RUNWARE_API_ENDPOINT = "https://api.runware.ai/v1"
+const MAX_POLL_ATTEMPTS = 120
+const POLL_INTERVAL_MS = 1000
 
 export async function POST(request: NextRequest) {
   try {
-    const apiKey = process.env.BRIA_API_KEY
+    const apiKey = process.env.RUNWARE_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: "BRIA_API_KEY is not configured" },
+        { error: "RUNWARE_API_KEY is not configured" },
         { status: 500 }
       )
     }
@@ -32,30 +32,48 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const validAspectRatios = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9"]
-    const finalAspectRatio = validAspectRatios.includes(aspect_ratio) ? aspect_ratio : "1:1"
+    // Convert aspect ratio to width/height
+    const aspectRatioMap: Record<string, [number, number]> = {
+      "1:1": [1024, 1024],
+      "2:3": [768, 1152],
+      "3:2": [1152, 768],
+      "3:4": [768, 1024],
+      "4:3": [1024, 768],
+      "4:5": [800, 1000],
+      "5:4": [1000, 800],
+      "9:16": [576, 1024],
+      "16:9": [1024, 576],
+    }
+
+    const [width, height] = aspectRatioMap[aspect_ratio] || [1024, 1024]
     const count = Math.min(Math.max(num_results, 1), 4)
 
-    console.log("[v0] Bria generate called with endpoint:", BRIA_GENERATE_ENDPOINT)
-    console.log("[v0] Payload: prompt length=", prompt.trim().length, "aspect=", finalAspectRatio, "count=", count)
+    console.log("[v0] Runware generate called")
+    console.log("[v0] Payload: prompt length=", prompt.trim().length, "dimensions=", `${width}x${height}`, "count=", count)
 
-    // V2 returns one result per request, so we fire multiple in parallel
+    // Fire multiple requests in parallel for multiple results
     const requests = Array.from({ length: count }, () => {
-      const briaPayload: Record<string, unknown> = {
-        prompt: prompt.trim(),
-        sync: true,
-        aspect_ratio: finalAspectRatio,
-        steps_num: 30,
-        guidance_scale: 5,
-      }
-      if (negative_prompt) {
-        briaPayload.negative_prompt = negative_prompt
-      }
-      if (seed !== undefined) {
-        briaPayload.seed = seed
+      const taskUUID = uuidv4()
+      const payload = {
+        taskType: "imageInference",
+        taskUUID,
+        outputType: "URL",
+        outputFormat: "jpg",
+        positivePrompt: prompt.trim(),
+        width,
+        height,
+        model: "runware:101@1",
+        steps: 30,
+        CFGScale: 7.5,
+        numberResults: 1,
+        deliveryMethod: "sync",
       }
 
-      return generateSingleImage(apiKey, briaPayload)
+      if (negative_prompt) {
+        payload.negativePrompt = negative_prompt
+      }
+
+      return generateSingleImage(apiKey, payload)
     })
 
     const results = await Promise.allSettled(requests)
@@ -91,91 +109,117 @@ export async function POST(request: NextRequest) {
   }
 }
 
+interface GeneratePayload {
+  taskType: string
+  taskUUID: string
+  outputType: string
+  outputFormat: string
+  positivePrompt: string
+  width: number
+  height: number
+  model: string
+  steps: number
+  CFGScale: number
+  numberResults: number
+  deliveryMethod: string
+  negativePrompt?: string
+}
+
 async function generateSingleImage(
   apiKey: string,
-  payload: Record<string, unknown>
+  payload: GeneratePayload
 ): Promise<{ url: string; seed?: number }> {
-  console.log("[v0] Fetching from:", BRIA_GENERATE_ENDPOINT, "payload:", JSON.stringify(payload))
-  const response = await fetch(BRIA_GENERATE_ENDPOINT, {
+  console.log("[v0] Fetching from Runware with UUID:", payload.taskUUID)
+
+  const response = await fetch(`${RUNWARE_API_ENDPOINT}/imageInference`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      api_token: apiKey,
+      Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify([payload]),
   })
 
-  console.log("[v0] Bria response status:", response.status)
+  console.log("[v0] Runware response status:", response.status)
+
   if (!response.ok) {
     const errorText = await response.text()
-    console.error("[v0] Bria API Error:", response.status, errorText)
+    console.error("[v0] Runware API Error:", response.status, errorText)
 
     if (response.status === 429) {
       throw new Error("Rate limit exceeded. Please wait a moment and try again.")
     }
     if (response.status === 401 || response.status === 403) {
-      throw new Error("Invalid API key. Please check your BRIA_API_KEY.")
+      throw new Error("Invalid API key. Please check your RUNWARE_API_KEY.")
     }
     throw new Error(`Image generation failed: ${errorText}`)
   }
 
   const data = await response.json()
 
-  // Sync mode: result comes directly with status 200
-  if (data.result?.image_url) {
+  // Runware returns an array of responses
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error("Unexpected response format from Runware API")
+  }
+
+  const result = data[0]
+
+  // Check for completion in sync mode
+  if (result.status === "succeeded" && result.imageURL) {
     return {
-      url: data.result.image_url,
-      seed: data.result.seed,
+      url: result.imageURL,
+      seed: result.seed,
     }
   }
 
-  // If we got result array (legacy format compatibility)
-  if (data.result && Array.isArray(data.result)) {
-    const first = data.result[0]
-    return {
-      url: first?.urls?.[0] || first?.image_url || "",
-      seed: first?.seed,
-    }
+  // If async or still processing, poll for result
+  if (result.taskUUID) {
+    return pollForResult(apiKey, result.taskUUID)
   }
 
-  // Async mode: poll status_url
-  if (data.request_id && data.status_url) {
-    return pollForResult(apiKey, data.status_url)
-  }
-
-  throw new Error("Unexpected response format from Bria API")
+  throw new Error("Failed to extract image from Runware response")
 }
 
 async function pollForResult(
   apiKey: string,
-  statusUrl: string
+  taskUUID: string
 ): Promise<{ url: string; seed?: number }> {
   for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
 
-    const statusResponse = await fetch(statusUrl, {
+    const response = await fetch(`${RUNWARE_API_ENDPOINT}/getResponse`, {
+      method: "POST",
       headers: {
-        api_token: apiKey,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
       },
+      body: JSON.stringify({
+        taskUUID,
+      }),
     })
 
-    if (!statusResponse.ok) {
-      const errorText = await statusResponse.text()
-      console.error("[Bria Status Error]", statusResponse.status, errorText)
+    if (!response.ok) {
+      console.error("[Runware Status Error]", response.status)
       continue
     }
 
-    const statusData = await statusResponse.json()
+    const data = await response.json()
 
-    if (statusData.status === "COMPLETED") {
+    if (!Array.isArray(data) || data.length === 0) {
+      continue
+    }
+
+    const result = data[0]
+
+    if (result.status === "succeeded" && result.imageURL) {
       return {
-        url: statusData.result?.image_url || "",
-        seed: statusData.result?.seed,
+        url: result.imageURL,
+        seed: result.seed,
       }
     }
 
-    if (statusData.status === "FAILED") {
-      throw new Error(statusData.error || "Image generation failed on Bria's side.")
+    if (result.status === "failed") {
+      throw new Error(result.error || "Image generation failed on Runware's side.")
     }
 
     // Still processing, continue polling
