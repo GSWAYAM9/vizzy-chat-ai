@@ -187,67 +187,8 @@ async function generateSingleImage(
     }
   }
 
-  // If taskUUID but no imageURL, need to poll for async result
-  if (result.taskUUID) {
-    console.log("[v0] Need to poll for async result with taskUUID:", result.taskUUID)
-    return pollForResult(apiKey, result.taskUUID)
-  }
-
-  throw new Error("Failed to extract image from Runware response")
-}
-
-async function pollForResult(
-  apiKey: string,
-  taskUUID: string
-): Promise<{ url: string; seed?: number }> {
-  for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
-
-    const response = await fetch(`${RUNWARE_API_ENDPOINT}/getResponse`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify([{
-        taskUUID,
-      }]),
-    })
-
-    if (!response.ok) {
-      console.error("[Runware Status Error]", response.status)
-      continue
-    }
-
-    const data = await response.json()
-
-    // Handle wrapped response format
-    let responseArray = null
-    if (data.data && Array.isArray(data.data)) {
-      responseArray = data.data
-    } else if (Array.isArray(data)) {
-      responseArray = data
-    }
-
-    if (!responseArray || responseArray.length === 0) {
-      continue
-    }
-
-    const result = responseArray[0]
-
-    if (result.status === "succeeded" && result.imageURL) {
-      return {
-        url: result.imageURL,
-        seed: result.seed,
-      }
-    }
-
-    if (result.status === "failed") {
-      throw new Error(result.error || "Image generation failed on Runware's side.")
-    }
-
-    // Still processing, continue polling
-  }
-
-  throw new Error("Image generation timed out. Please try again.")
+  // For sync delivery, we should always get imageURL immediately
+  // If we don't have it, the generation failed - don't attempt polling
+  console.error("[v0] No imageURL in sync response. Result:", JSON.stringify(result).substring(0, 300))
+  throw new Error("Image generation failed: no image URL in response")
 }
