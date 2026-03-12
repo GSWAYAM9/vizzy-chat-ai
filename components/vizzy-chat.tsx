@@ -19,6 +19,22 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+function isImageGenerationIntent(input: string): boolean {
+  const imageKeywords = [
+    "generate", "create", "make", "draw", "paint", "design", "illustrate",
+    "image", "picture", "photo", "render", "visualization", "visual",
+    "poster", "banner", "logo", "icon", "artwork", "art", "style",
+    "scene", "landscape", "portrait", "concept", "character",
+    "show", "display", "generate variations", "variations", "versions",
+    "in the style of", "looking like", "similar to", "imagine",
+    "moodboard", "mood board", "aesthetic", "vibe",
+  ]
+
+  return imageKeywords.some((keyword) =>
+    input.toLowerCase().includes(keyword)
+  )
+}
+
 function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): string {
   const previousPrompts = messages
     .filter((m) => m.role === "user")
@@ -136,46 +152,84 @@ export function VizzyChat() {
     setIsLoading(true)
 
     try {
-      const refinedPrompt = buildRefinedPrompt(
-        [...messages, userMessage],
-        trimmedInput
-      )
-      const numResults = parseNumImages(trimmedInput)
+      const isImageGen = isImageGenerationIntent(trimmedInput)
 
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: refinedPrompt,
-          aspect_ratio: aspectRatio,
-          num_results: numResults,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate image")
-      }
-
-      const assistantText = generateAssistantText(data.images.length, refinedPrompt)
-
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMessage.id
-            ? {
-                ...m,
-                content: assistantText,
-                images: data.images.map((img: { url: string; seed?: number }) => ({
-                  url: img.url,
-                  prompt: refinedPrompt,
-                  seed: img.seed,
-                })),
-                isLoading: false,
-              }
-            : m
+      if (isImageGen) {
+        // Image generation flow
+        const refinedPrompt = buildRefinedPrompt(
+          [...messages, userMessage],
+          trimmedInput
         )
-      )
+        const numResults = parseNumImages(trimmedInput)
+
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: refinedPrompt,
+            aspect_ratio: aspectRatio,
+            num_results: numResults,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to generate image")
+        }
+
+        const assistantText = generateAssistantText(data.images.length, refinedPrompt)
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? {
+                  ...m,
+                  content: assistantText,
+                  images: data.images.map((img: { url: string; seed?: number }) => ({
+                    url: img.url,
+                    prompt: refinedPrompt,
+                    seed: img.seed,
+                  })),
+                  isLoading: false,
+                }
+              : m
+          )
+        )
+      } else {
+        // LLM chat flow
+        const conversationMessages = [
+          ...messages,
+          userMessage,
+        ].map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
+
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: conversationMessages }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to generate response")
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? {
+                  ...m,
+                  content: data.content,
+                  isLoading: false,
+                }
+              : m
+          )
+        )
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Something went wrong"
