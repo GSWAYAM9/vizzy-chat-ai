@@ -211,22 +211,26 @@ export function VizzyChat() {
 
 
       if (hasUploadedImage && trimmedInput) {
-        // User provided an instruction with uploaded image - use inpaint
-        console.log("[v0] Calling inpaint endpoint for object removal")
+        // User provided an instruction with uploaded image - generate edited version using generate endpoint
+        console.log("[v0] Generating edited image based on user instruction")
         
-        const response = await fetch("/api/inpaint", {
+        // Create a prompt focused on the editing task
+        const editPrompt = `${trimmedInput}. Keep the same composition and style as the original image.`
+        
+        const response = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            imageUrl: uploadedImage!.url,
-            prompt: trimmedInput,
+            prompt: editPrompt,
+            aspect_ratio: aspectRatio,
+            num_results: 1,
           }),
         })
 
         const data = await response.json()
 
         if (!response.ok) {
-          throw new Error(data.error || "Failed to edit image")
+          throw new Error(data.error || "Failed to generate edited image")
         }
 
         setMessages((prev) =>
@@ -235,12 +239,11 @@ export function VizzyChat() {
               ? {
                   ...m,
                   content: `I've edited your image: ${trimmedInput}`,
-                  images: [
-                    {
-                      url: data.editedImage.url,
-                      prompt: trimmedInput,
-                    },
-                  ],
+                  images: data.images.map((img: { url: string; seed?: number }) => ({
+                    url: img.url,
+                    prompt: editPrompt,
+                    seed: img.seed,
+                  })),
                   uploadedImages: [
                     {
                       id: generateId(),
@@ -266,7 +269,7 @@ export function VizzyChat() {
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I can see your uploaded image. What would you like me to edit? Describe the changes and I'll apply them.`,
+                  content: `I can see your uploaded image. What would you like me to edit? Describe the changes and I'll generate an edited version.`,
                   uploadedImages: [
                     {
                       id: generateId(),
