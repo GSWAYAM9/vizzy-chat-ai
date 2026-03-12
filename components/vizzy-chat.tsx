@@ -209,16 +209,40 @@ export function VizzyChat() {
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
       if (hasUploadedImage) {
-        // Show uploaded image in chat as reference
-        // User can discuss it with the AI or use it for context
-        console.log("[v0] Showing uploaded image in chat")
+        // Image inpainting/editing flow - edit the uploaded image based on user prompt
+        console.log("[v0] Calling inpaint endpoint")
+        console.log("[v0] Uploaded image URL:", uploadedImage!.url)
+        console.log("[v0] Edit prompt:", trimmedInput)
         
+        const response = await fetch("/api/inpaint", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageUrl: uploadedImage!.url,
+            prompt: trimmedInput,
+          }),
+        })
+
+        const data = await response.json()
+        console.log("[v0] Inpaint response status:", response.status)
+        console.log("[v0] Inpaint response:", data)
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to edit image")
+        }
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I can see your uploaded image. What would you like to do with it? I can help describe it, suggest improvements, or generate variations based on its style.`,
+                  content: `I've edited your image based on your request: "${trimmedInput}"`,
+                  images: [
+                    {
+                      url: data.editedImage.url,
+                      prompt: trimmedInput,
+                    },
+                  ],
                   uploadedImages: [
                     {
                       id: generateId(),
@@ -234,7 +258,7 @@ export function VizzyChat() {
           )
         )
         
-        // Clear uploaded image after displaying
+        // Clear uploaded image after editing
         setUploadedImage(null)
       } else if (isImageGen) {
         // Image generation flow
