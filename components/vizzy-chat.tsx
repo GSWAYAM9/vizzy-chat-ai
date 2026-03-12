@@ -214,8 +214,15 @@ export function VizzyChat() {
         // User provided an instruction with uploaded image - generate edited version using generate endpoint
         console.log("[v0] Generating edited image based on user instruction")
         
-        // Create a prompt focused on the editing task
-        const editPrompt = `${trimmedInput}. Keep the same composition and style as the original image.`
+        // Create a detailed prompt for object removal/editing
+        // If user asks to remove something, describe the scene without that object
+        let editPrompt = trimmedInput
+        if (trimmedInput.toLowerCase().includes('remove') || trimmedInput.toLowerCase().includes('delete')) {
+          // For removal tasks, describe what should remain
+          editPrompt = `A scene without ${trimmedInput.toLowerCase().replace('remove ', '').replace('delete ', '')}. Same style, composition, and lighting.`
+        } else {
+          editPrompt = `${trimmedInput}. Keep the same composition and style.`
+        }
         
         const response = await fetch("/api/generate", {
           method: "POST",
