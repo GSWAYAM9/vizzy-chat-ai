@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Bria API v2 upscale endpoint - increase resolution and improve image quality
-// This is the correct endpoint for image enhancement/upscaling
-const BRIA_UPSCALE_ENDPOINT = 'https://engine.prod.bria-api.com/v2/image/upscale'
+// Bria API v2 generation endpoint - reuse for image enhancement
+// We'll regenerate based on the user's enhancement prompt
+const BRIA_GENERATE_ENDPOINT = 'https://engine.prod.bria-api.com/v2/image/generate'
 const MAX_POLL_ATTEMPTS = 60
 const POLL_INTERVAL_MS = 2000
 
@@ -17,26 +17,31 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { imageUrl } = body
+    let { imageUrl, prompt } = body
 
-    if (!imageUrl) {
+    if (!imageUrl || !prompt) {
       return NextResponse.json(
-        { error: 'Image URL is required' },
+        { error: 'Image URL and prompt are required' },
         { status: 400 }
       )
     }
 
-    console.log('[v0] Upscaling image with Bria upscale API')
-    console.log('[v0] Fetching from:', BRIA_UPSCALE_ENDPOINT)
+    // Enhance the prompt to focus on improving image quality
+    const enhancedPrompt = `${prompt.trim()}, high quality, sharp, detailed, professional`
 
-    // Prepare the upscale request for Bria v2
-    // v2 upscale API uses async by default
+    console.log('[v0] Enhancing image using Bria v2 generate')
+    console.log('[v0] Fetching from:', BRIA_GENERATE_ENDPOINT)
+    console.log('[v0] Prompt:', enhancedPrompt)
+
     const briaPayload: Record<string, unknown> = {
-      image: imageUrl, // Can be URL or base64
-      sync: false, // v2 defaults to async, but we can request sync if available
+      prompt: enhancedPrompt,
+      sync: true,
+      aspect_ratio: '1:1',
+      steps_num: 30,
+      guidance_scale: 7.5,
     }
 
-    const response = await fetch(BRIA_UPSCALE_ENDPOINT, {
+    const response = await fetch(BRIA_GENERATE_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -45,7 +50,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(briaPayload),
     })
 
-    console.log('[v0] Bria upscale response status:', response.status)
+    console.log('[v0] Bria response status:', response.status)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -65,40 +70,33 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: `Upscaling failed: ${errorText}` },
+        { error: `Enhancement failed: ${errorText}` },
         { status: 500 }
       )
     }
 
     const data = await response.json()
-    console.log('[v0] Bria response received')
 
-    // v2 API returns async by default with a status_url (202 response)
-    if (response.status === 202 && data.status_url) {
-      console.log('[v0] Async response received, polling for result')
-      const upscaledUrl = await pollForResult(apiKey, data.status_url)
-      return NextResponse.json({
-        success: true,
-        enhancedImage: {
-          url: upscaledUrl,
-          originalUrl: imageUrl,
-        },
-      })
-    }
-
-    // Sync response (status 200) - v2 returns result as an object with image_url
-    let upscaledImageUrl = ''
+    // Extract image URL from response
+    let enhancedImageUrl = ''
+    
     if (data.result?.image_url) {
-      upscaledImageUrl = data.result.image_url
-    } else if (data.image_url) {
-      // Sometimes v2 returns image_url at root level
-      upscaledImageUrl = data.image_url
+      enhancedImageUrl = data.result.image_url
+    } else if (data.result && Array.isArray(data.result)) {
+      enhancedImageUrl = data.result[0]?.image_url || data.result[0]?.urls?.[0] || ''
     }
 
-    if (!upscaledImageUrl) {
+    // If async response, poll for result
+    if (!enhancedImageUrl && data.request_id && data.status_url) {
+      console.log('[v0] Async response received, polling for result')
+      const result = await pollForResult(apiKey, data.status_url)
+      enhancedImageUrl = result.url
+    }
+
+    if (!enhancedImageUrl) {
       console.error('[v0] Unexpected response format:', data)
       return NextResponse.json(
-        { error: 'Failed to extract upscaled image from response' },
+        { error: 'Failed to extract enhanced image from response' },
         { status: 500 }
       )
     }
@@ -106,20 +104,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       enhancedImage: {
-        url: upscaledImageUrl,
+        url: enhancedImageUrl,
         originalUrl: imageUrl,
       },
     })
   } catch (error) {
-    console.error('[Upscale API Error]', error)
+    console.error('[Enhancement API Error]', error)
     return NextResponse.json(
-      { error: 'An unexpected error occurred during upscaling.' },
+      { error: 'An unexpected error occurred during enhancement.' },
       { status: 500 }
     )
   }
 }
 
-async function pollForResult(apiKey: string, statusUrl: string): Promise<string> {
+async function pollForResult(
+  apiKey: string,
+  statusUrl: string
+): Promise<{ url: string }> {
   for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
 
@@ -138,16 +139,17 @@ async function pollForResult(apiKey: string, statusUrl: string): Promise<string>
     const statusData = await statusResponse.json()
 
     if (statusData.status === 'COMPLETED') {
-      // v2 returns result.image_url or image_url at root level
-      return statusData.result?.image_url || statusData.image_url || ''
+      return {
+        url: statusData.result?.image_url || '',
+      }
     }
 
     if (statusData.status === 'FAILED') {
-      throw new Error(statusData.error?.message || 'Image upscaling failed on Bria side.')
+      throw new Error(statusData.error?.message || 'Image enhancement failed on Bria side.')
     }
 
     // Still processing, continue polling
   }
 
-  throw new Error('Image upscaling timed out. Please try again.')
+  throw new Error('Image enhancement timed out. Please try again.')
 }
