@@ -20,19 +20,66 @@ function generateId() {
 }
 
 function isImageGenerationIntent(input: string): boolean {
-  const imageKeywords = [
+  const lowerInput = input.toLowerCase()
+  
+  // Strong image generation keywords - these clearly indicate image creation
+  const strongKeywords = [
     "generate", "create", "make", "draw", "paint", "design", "illustrate",
-    "image", "picture", "photo", "render", "visualization", "visual",
-    "poster", "banner", "logo", "icon", "artwork", "art", "style",
-    "scene", "landscape", "portrait", "concept", "character",
-    "show", "display", "generate variations", "variations", "versions",
-    "in the style of", "looking like", "similar to", "imagine",
-    "moodboard", "mood board", "aesthetic", "vibe",
+    "render", "show me", "imagine", "visualize", "picture of",
+    "image of", "photo of", "artwork of", "concept art",
+    "i want", "i need", "can you", "please make", "please generate",
+    "please create", "please draw",
   ]
-
-  return imageKeywords.some((keyword) =>
-    input.toLowerCase().includes(keyword)
+  
+  // Weak keywords that need additional context - words that could be in chat
+  const weakKeywords = ["style", "aesthetic", "vibe", "art", "character", "scene", "landscape"]
+  
+  // Check if it starts with clear generation intent
+  const hasStrongIntent = strongKeywords.some((keyword) =>
+    lowerInput.includes(keyword)
   )
+  
+  if (hasStrongIntent) {
+    return true
+  }
+  
+  // For weak keywords, require a strong generation verb nearby
+  const hasWeakKeyword = weakKeywords.some((keyword) =>
+    lowerInput.includes(keyword)
+  )
+  
+  if (hasWeakKeyword) {
+    // Only treat as image generation if paired with creation verbs
+    const generationVerbs = ["in", "for", "of", "with", "a ", "the "]
+    const beforeKeyword = generationVerbs.some((verb) => {
+      const keywordIndex = lowerInput.indexOf("style") + 
+                          lowerInput.indexOf("aesthetic") +
+                          lowerInput.indexOf("vibe") +
+                          lowerInput.indexOf("art") +
+                          lowerInput.indexOf("character") +
+                          lowerInput.indexOf("scene") +
+                          lowerInput.indexOf("landscape")
+      return keywordIndex > 0
+    })
+    
+    // More conservative: only consider weak keywords as generation intent
+    // if they're in the context of "create X in style Y" or similar
+    const generationPatterns = [
+      /create.*style/i,
+      /generate.*style/i,
+      /make.*style/i,
+      /design.*style/i,
+      /in.*style of/i,
+      /style.*image/i,
+      /make.*character/i,
+      /create.*character/i,
+      /design.*character/i,
+    ]
+    
+    return generationPatterns.some((pattern) => pattern.test(lowerInput))
+  }
+  
+  return false
 }
 
 function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): string {
