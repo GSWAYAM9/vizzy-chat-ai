@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Bria API enhance endpoint - regenerate image with sharper textures and richer details
-const BRIA_ENHANCE_ENDPOINT = 'https://engine.prod.bria-api.com/v2/image/enhance'
+// Bria API v2 enhance endpoint - regenerate image with sharper textures and richer details
+const BRIA_ENHANCE_ENDPOINT = 'https://engine.prod.bria-api.com/v2/image/edit/enhance'
 const MAX_POLL_ATTEMPTS = 60
 const POLL_INTERVAL_MS = 2000
 
@@ -27,10 +27,11 @@ export async function POST(request: NextRequest) {
 
     console.log('[v0] Enhancing image with Bria enhance API')
 
-    // Prepare the enhance request
+    // Prepare the enhance request for Bria v2
+    // v2 defaults to async (sync: false), but we can request sync for immediate results
     const briaPayload: Record<string, unknown> = {
-      image: imageUrl, // Can be URL or base64
-      sync: true, // Process synchronously and wait for result
+      image: imageUrl, // Can be URL or base64 (v2 unified parameter)
+      sync: false, // v2 defaults to async - let's use async for reliability
     }
 
     const response = await fetch(BRIA_ENHANCE_ENDPOINT, {
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
 
-    // If async response (status_url), poll for result
+    // v2 API returns async by default with a status_url (202 response)
     if (response.status === 202 && data.status_url) {
       console.log('[v0] Async response received, polling for result')
       const enhancedUrl = await pollForResult(apiKey, data.status_url)
@@ -82,15 +83,17 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Sync response (status 200)
+    // Sync response (status 200) - v2 returns result as an object with image_url
     let enhancedImageUrl = ''
     if (data.result?.image_url) {
       enhancedImageUrl = data.result.image_url
-    } else if (data.result && Array.isArray(data.result)) {
-      enhancedImageUrl = data.result[0]?.image_url || ''
+    } else if (data.image_url) {
+      // Sometimes v2 returns image_url at root level
+      enhancedImageUrl = data.image_url
     }
 
     if (!enhancedImageUrl) {
+      console.error('[v0] Unexpected response format:', data)
       return NextResponse.json(
         { error: 'Failed to extract enhanced image from response' },
         { status: 500 }
@@ -132,7 +135,8 @@ async function pollForResult(apiKey: string, statusUrl: string): Promise<string>
     const statusData = await statusResponse.json()
 
     if (statusData.status === 'COMPLETED') {
-      return statusData.result?.image_url || ''
+      // v2 returns result.image_url or image_url at root level
+      return statusData.result?.image_url || statusData.image_url || ''
     }
 
     if (statusData.status === 'FAILED') {
