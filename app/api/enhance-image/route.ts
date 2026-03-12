@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Bria API inpainting/editing endpoint
-const BRIA_INPAINT_ENDPOINT = 'https://engine.prod.bria-api.com/v2/image/inpaint'
+// Bria API enhance endpoint - regenerate image with sharper textures and richer details
+const BRIA_ENHANCE_ENDPOINT = 'https://engine.prod.bria-api.com/v2/image/enhance'
+const MAX_POLL_ATTEMPTS = 60
+const POLL_INTERVAL_MS = 2000
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,39 +16,24 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { imageUrl, prompt, negativePrompt } = body
+    const { imageUrl, prompt } = body
 
-    if (!imageUrl || !prompt) {
+    if (!imageUrl) {
       return NextResponse.json(
-        { error: 'Image URL and prompt are required' },
+        { error: 'Image URL is required' },
         { status: 400 }
       )
     }
 
-    if (typeof prompt !== 'string' || prompt.trim().length === 0) {
-      return NextResponse.json(
-        { error: 'A valid prompt is required' },
-        { status: 400 }
-      )
-    }
+    console.log('[v0] Enhancing image with Bria enhance API')
 
-    // Prepare the inpainting request
+    // Prepare the enhance request
     const briaPayload: Record<string, unknown> = {
-      image_url: imageUrl,
-      prompt: prompt.trim(),
-      sync: true,
-      inpaint_type: 'gen_fill', // Use generative fill to enhance the entire image
-      steps_num: 30,
-      guidance_scale: 5,
+      image: imageUrl, // Can be URL or base64
+      sync: true, // Process synchronously and wait for result
     }
 
-    if (negativePrompt) {
-      briaPayload.negative_prompt = negativePrompt
-    }
-
-    console.log('[v0] Enhancing image with Bria inpaint API')
-
-    const response = await fetch(BRIA_INPAINT_ENDPOINT, {
+    const response = await fetch(BRIA_ENHANCE_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -82,12 +69,25 @@ export async function POST(request: NextRequest) {
 
     const data = await response.json()
 
-    // Extract the enhanced image URL
+    // If async response (status_url), poll for result
+    if (response.status === 202 && data.status_url) {
+      console.log('[v0] Async response received, polling for result')
+      const enhancedUrl = await pollForResult(apiKey, data.status_url)
+      return NextResponse.json({
+        success: true,
+        enhancedImage: {
+          url: enhancedUrl,
+          originalUrl: imageUrl,
+        },
+      })
+    }
+
+    // Sync response (status 200)
     let enhancedImageUrl = ''
     if (data.result?.image_url) {
       enhancedImageUrl = data.result.image_url
     } else if (data.result && Array.isArray(data.result)) {
-      enhancedImageUrl = data.result[0]?.image_url || data.result[0]?.urls?.[0] || ''
+      enhancedImageUrl = data.result[0]?.image_url || ''
     }
 
     if (!enhancedImageUrl) {
@@ -101,7 +101,6 @@ export async function POST(request: NextRequest) {
       success: true,
       enhancedImage: {
         url: enhancedImageUrl,
-        prompt: prompt.trim(),
         originalUrl: imageUrl,
       },
     })
@@ -112,4 +111,36 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+async function pollForResult(apiKey: string, statusUrl: string): Promise<string> {
+  for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+
+    const statusResponse = await fetch(statusUrl, {
+      headers: {
+        api_token: apiKey,
+      },
+    })
+
+    if (!statusResponse.ok) {
+      const errorText = await statusResponse.text()
+      console.error('[Bria Status Error]', statusResponse.status, errorText)
+      continue
+    }
+
+    const statusData = await statusResponse.json()
+
+    if (statusData.status === 'COMPLETED') {
+      return statusData.result?.image_url || ''
+    }
+
+    if (statusData.status === 'FAILED') {
+      throw new Error(statusData.error?.message || 'Image enhancement failed on Bria side.')
+    }
+
+    // Still processing, continue polling
+  }
+
+  throw new Error('Image enhancement timed out. Please try again.')
 }
