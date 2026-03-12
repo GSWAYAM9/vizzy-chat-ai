@@ -2,52 +2,41 @@ import { NextRequest, NextResponse } from 'next/server'
 import sharp from 'sharp'
 
 const STABILITY_API_KEY = process.env.STABILITY_API_KEY
-const STABILITY_API_URL = 'https://api.stability.ai/v2beta/stable-image/edit/inpaint'
 
 export async function POST(request: NextRequest) {
   try {
     if (!STABILITY_API_KEY) {
-      return NextResponse.json(
-        { error: 'STABILITY_API_KEY not configured' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'STABILITY_API_KEY not configured' }, { status: 500 })
     }
 
     const { imageUrl, prompt } = await request.json()
 
     if (!imageUrl || !prompt) {
-      return NextResponse.json(
-        { error: 'Missing imageUrl or prompt' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Missing imageUrl or prompt' }, { status: 400 })
     }
 
-    console.log('[v0] Inpainting with Stability AI:', { prompt })
+    console.log('[v0] Fetching image from URL:', imageUrl)
 
-    // Fetch the image from the URL
+    // Fetch the image
     const imageResponse = await fetch(imageUrl)
-    if (!imageResponse.ok) {
-      throw new Error('Failed to fetch image from URL')
-    }
-    const uploadedImageBuffer = await imageResponse.arrayBuffer()
+    if (!imageResponse.ok) throw new Error('Failed to fetch image')
+    const imageBuffer = await imageResponse.arrayBuffer()
 
-    console.log('[v0] Converting image to PNG format')
+    console.log('[v0] Converting image to PNG')
 
-    // Convert image to PNG format (required by Stability AI)
-    const pngBuffer = await sharp(Buffer.from(uploadedImageBuffer))
-      .png()
-      .toBuffer()
+    // Convert to PNG using sharp
+    const pngBuffer = await sharp(Buffer.from(imageBuffer)).png().toBuffer()
 
-    console.log('[v0] PNG conversion complete, sending to Stability AI')
+    console.log('[v0] Sending to Stability AI with prompt:', prompt)
 
-    // Create FormData for Stability AI API
+    // Create form data
     const formData = new FormData()
     formData.append('image', new Blob([pngBuffer], { type: 'image/png' }), 'image.png')
     formData.append('prompt', prompt)
     formData.append('output_format', 'png')
 
-    // Call Stability AI inpainting API
-    const stabilityResponse = await fetch(STABILITY_API_URL, {
+    // Call Stability AI
+    const response = await fetch('https://api.stability.ai/v2beta/stable-image/edit/inpaint', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${STABILITY_API_KEY}`,
@@ -56,26 +45,25 @@ export async function POST(request: NextRequest) {
       body: formData,
     })
 
-    if (!stabilityResponse.ok) {
-      const errorData = await stabilityResponse.text()
-      console.error('[v0] Stability AI error:', stabilityResponse.status, errorData)
-      throw new Error(`Stability AI API error: ${stabilityResponse.status}`)
+    if (!response.ok) {
+      const error = await response.text()
+      console.error('[v0] Stability API error:', response.status, error)
+      throw new Error(`Stability API error: ${response.status}`)
     }
 
-    const resultImageBuffer = await stabilityResponse.arrayBuffer()
-    const base64Image = Buffer.from(resultImageBuffer).toString('base64')
+    console.log('[v0] Image inpainted successfully')
 
-    console.log('[v0] Image edited successfully')
+    // Convert response to base64
+    const resultBuffer = await response.arrayBuffer()
+    const base64 = Buffer.from(resultBuffer).toString('base64')
 
     return NextResponse.json({
-      editedImage: {
-        url: `data:image/png;base64,${base64Image}`,
-      },
+      editedImage: { url: `data:image/png;base64,${base64}` },
     })
   } catch (error) {
     console.error('[v0] Inpaint error:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to inpaint image' },
+      { error: error instanceof Error ? error.message : 'Inpaint failed' },
       { status: 500 }
     )
   }
