@@ -209,43 +209,38 @@ export function VizzyChat() {
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
       if (hasUploadedImage && trimmedInput) {
-        // User provided a description/instruction with uploaded image
-        // Generate new image based on the instruction
-        console.log("[v0] Generating image based on uploaded image + instruction")
+        // User provided an editing instruction with uploaded image
+        // Create a prompt that emphasizes this is about editing the uploaded image
+        console.log("[v0] Generating edited image based on uploaded image + instruction")
         
-        const refinedPrompt = buildRefinedPrompt(
-          [...messages, userMessage],
-          trimmedInput
-        )
-        const numResults = parseNumImages(trimmedInput)
-
+        // Build a more explicit editing prompt
+        const editingPrompt = `Edit this image: ${trimmedInput}. Keep the same scene and style, only make the specific requested changes.`
+        
         const response = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt: refinedPrompt,
+            prompt: editingPrompt,
             aspect_ratio: aspectRatio,
-            num_results: numResults,
+            num_results: 1,
           }),
         })
 
         const data = await response.json()
 
         if (!response.ok) {
-          throw new Error(data.error || "Failed to generate image")
+          throw new Error(data.error || "Failed to edit image")
         }
-
-        const assistantText = generateAssistantText(data.images.length, refinedPrompt)
 
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: assistantText,
+                  content: `I've edited your image: ${trimmedInput}`,
                   images: data.images.map((img: { url: string; seed?: number }) => ({
                     url: img.url,
-                    prompt: refinedPrompt,
+                    prompt: editingPrompt,
                     seed: img.seed,
                   })),
                   uploadedImages: [
