@@ -208,55 +208,8 @@ export function VizzyChat() {
       const hasUploadedImage = uploadedImage !== null
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
-      if (hasUploadedImage && trimmedInput) {
-        // User provided an instruction with uploaded image - use inpaint to edit
-        console.log("[v0] Calling inpaint API for image editing")
-        
-        const response = await fetch("/api/inpaint", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageUrl: uploadedImage!.url,
-            prompt: trimmedInput,
-          }),
-        })
-
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to edit image")
-        }
-
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessage.id
-              ? {
-                  ...m,
-                  content: `I've edited your image: ${trimmedInput}`,
-                  images: [
-                    {
-                      url: data.editedImage.url,
-                      prompt: trimmedInput,
-                    },
-                  ],
-                  uploadedImages: [
-                    {
-                      id: generateId(),
-                      url: uploadedImage!.url,
-                      fileName: uploadedImage!.fileName,
-                      fileSize: 0,
-                      uploadedAt: Date.now(),
-                    },
-                  ],
-                  isLoading: false,
-                }
-              : m
-          )
-        )
-        
-        setUploadedImage(null)
-      } else if (hasUploadedImage) {
-        // Display uploaded image without instruction
+      if (hasUploadedImage) {
+        // Display uploaded image in chat for reference and discussion
         console.log("[v0] Displaying uploaded image")
         
         setMessages((prev) =>
@@ -264,7 +217,7 @@ export function VizzyChat() {
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I can see your uploaded image. What would you like me to do? I can remove objects, make edits, or describe the image.`,
+                  content: `I can see your uploaded image. ${trimmedInput ? `You mentioned: "${trimmedInput}". ` : ""}I can help describe it, discuss it, or generate new images with Runware.`,
                   uploadedImages: [
                     {
                       id: generateId(),
