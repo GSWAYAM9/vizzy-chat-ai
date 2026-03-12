@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       sync: true,
       aspect_ratio: '1:1',
       steps_num: 30,
-      guidance_scale: 7.5,
+      guidance_scale: 5,
     }
 
     const response = await fetch(BRIA_GENERATE_ENDPOINT, {
