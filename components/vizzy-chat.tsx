@@ -209,40 +209,15 @@ export function VizzyChat() {
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
       if (hasUploadedImage) {
-        // Image inpainting/editing flow - edit the uploaded image based on user prompt
-        console.log("[v0] Calling inpaint endpoint")
-        console.log("[v0] Uploaded image URL:", uploadedImage!.url)
-        console.log("[v0] Edit prompt:", trimmedInput)
+        // Display uploaded image in chat with AI context
+        console.log("[v0] Displaying uploaded image in chat")
         
-        const response = await fetch("/api/inpaint", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageUrl: uploadedImage!.url,
-            prompt: trimmedInput,
-          }),
-        })
-
-        const data = await response.json()
-        console.log("[v0] Inpaint response status:", response.status)
-        console.log("[v0] Inpaint response:", data)
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to edit image")
-        }
-
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I've edited your image based on your request: "${trimmedInput}"`,
-                  images: [
-                    {
-                      url: data.editedImage.url,
-                      prompt: trimmedInput,
-                    },
-                  ],
+                  content: `I can see your uploaded image. ${trimmedInput ? `You mentioned: "${trimmedInput}". ` : ""}I can help describe it, suggest improvements, or generate new images based on its style.`,
                   uploadedImages: [
                     {
                       id: generateId(),
@@ -258,7 +233,7 @@ export function VizzyChat() {
           )
         )
         
-        // Clear uploaded image after editing
+        // Clear uploaded image after displaying
         setUploadedImage(null)
       } else if (isImageGen) {
         // Image generation flow
