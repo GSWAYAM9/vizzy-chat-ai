@@ -172,16 +172,22 @@ async function generateSingleImage(
 
   const result = responseArray[0]
 
-  // Check for completion in sync mode
-  if (result.status === "succeeded" && result.imageURL) {
+  console.log("[v0] Result keys:", Object.keys(result))
+  console.log("[v0] Has imageURL:", !!result.imageURL)
+  console.log("[v0] Has taskUUID:", !!result.taskUUID)
+
+  // Check for immediate completion - imageURL means sync response already succeeded
+  if (result.imageURL) {
+    console.log("[v0] Image already available from sync response")
     return {
       url: result.imageURL,
       seed: result.seed,
     }
   }
 
-  // If async or still processing, poll for result
+  // If taskUUID but no imageURL, need to poll for async result
   if (result.taskUUID) {
+    console.log("[v0] Need to poll for async result with taskUUID:", result.taskUUID)
     return pollForResult(apiKey, result.taskUUID)
   }
 
