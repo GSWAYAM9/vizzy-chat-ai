@@ -208,8 +208,60 @@ export function VizzyChat() {
       const hasUploadedImage = uploadedImage !== null
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
-      if (hasUploadedImage) {
-        // Display uploaded image in chat with AI context
+      if (hasUploadedImage && trimmedInput) {
+        // Image inpainting/editing flow - edit the uploaded image based on user prompt
+        console.log("[v0] Calling inpaint endpoint")
+        console.log("[v0] Uploaded image URL:", uploadedImage!.url)
+        console.log("[v0] Edit prompt:", trimmedInput)
+        
+        const response = await fetch("/api/inpaint", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageUrl: uploadedImage!.url,
+            prompt: trimmedInput,
+          }),
+        })
+
+        const data = await response.json()
+        console.log("[v0] Inpaint response status:", response.status)
+        console.log("[v0] Inpaint response:", data)
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to edit image")
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? {
+                  ...m,
+                  content: `I've edited your image: ${trimmedInput}`,
+                  images: [
+                    {
+                      url: data.editedImage.url,
+                      prompt: trimmedInput,
+                    },
+                  ],
+                  uploadedImages: [
+                    {
+                      id: generateId(),
+                      url: uploadedImage!.url,
+                      fileName: uploadedImage!.fileName,
+                      fileSize: 0,
+                      uploadedAt: Date.now(),
+                    },
+                  ],
+                  isLoading: false,
+                }
+              : m
+          )
+        )
+        
+        // Clear uploaded image after editing
+        setUploadedImage(null)
+      } else if (hasUploadedImage) {
+        // No prompt provided, just display the image
         console.log("[v0] Displaying uploaded image in chat")
         
         setMessages((prev) =>
@@ -217,7 +269,7 @@ export function VizzyChat() {
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I can see your uploaded image. ${trimmedInput ? `You mentioned: "${trimmedInput}". ` : ""}I can help describe it, suggest improvements, or generate new images based on its style.`,
+                  content: `I can see your uploaded image. What would you like me to do with it? I can remove objects, make edits, or use it as inspiration for generating new images.`,
                   uploadedImages: [
                     {
                       id: generateId(),
