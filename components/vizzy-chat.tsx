@@ -209,16 +209,15 @@ export function VizzyChat() {
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
       if (hasUploadedImage) {
-        // Show uploaded image in chat as reference
-        // User can discuss it with the AI or use it for context
-        console.log("[v0] Showing uploaded image in chat")
+        // Display uploaded image in chat with AI context
+        console.log("[v0] Displaying uploaded image in chat")
         
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I can see your uploaded image. What would you like to do with it? I can help describe it, suggest improvements, or generate variations based on its style.`,
+                  content: `I can see your uploaded image. ${trimmedInput ? `You mentioned: "${trimmedInput}". ` : ""}I can help describe it, suggest improvements, or generate new images based on its style.`,
                   uploadedImages: [
                     {
                       id: generateId(),
