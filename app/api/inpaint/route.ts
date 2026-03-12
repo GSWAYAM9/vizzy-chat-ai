@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
 
 // Runware API endpoint for image inpainting (editing)
+// Using imageMasking task type which supports content-aware object removal
 const RUNWARE_API_ENDPOINT = "https://api.runware.ai/v1"
 const MAX_POLL_ATTEMPTS = 120
 const POLL_INTERVAL_MS = 1000
@@ -15,6 +16,160 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    const body = await request.json()
+    const { imageUrl, prompt } = body
+
+    if (!imageUrl || !prompt) {
+      return NextResponse.json(
+        { error: "Image URL and prompt are required" },
+        { status: 400 }
+      )
+    }
+
+    console.log("[v0] Runware image editing called")
+    console.log("[v0] Prompt:", prompt)
+
+    const taskUUID = uuidv4()
+    
+    // Use imageMasking task type which can handle object removal/editing
+    const payload = {
+      taskType: "imageMasking",
+      taskUUID,
+      inputImage: imageUrl,
+      maskPrompt: prompt.trim(), // Describe what to remove/edit
+      outputType: "URL",
+      outputFormat: "jpg",
+      deliveryMethod: "sync",
+    }
+
+    console.log("[v0] Sending image editing request to Runware")
+
+    const response = await fetch(`${RUNWARE_API_ENDPOINT}/imageMasking`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify([payload]),
+    })
+
+    console.log("[v0] Runware image editing response status:", response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("[v0] Runware API Error:", response.status, errorText)
+
+      if (response.status === 429) {
+        return NextResponse.json(
+          { error: "Rate limit exceeded. Please wait a moment and try again." },
+          { status: 429 }
+        )
+      }
+      if (response.status === 401 || response.status === 403) {
+        return NextResponse.json(
+          { error: "Invalid API key. Please check your RUNWARE_API_KEY." },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json(
+        { error: `Image editing failed: ${errorText}` },
+        { status: 500 }
+      )
+    }
+
+    const data = await response.json()
+    console.log("[v0] Image editing response received")
+
+    // Parse response - imageMasking returns mask data, we need to get the result
+    if (!Array.isArray(data) || data.length === 0) {
+      return NextResponse.json(
+        { error: "Unexpected response format from Runware API" },
+        { status: 500 }
+      )
+    }
+
+    const result = data[0]
+
+    // Check for completion
+    if (result.status === "succeeded" && result.imageURL) {
+      return NextResponse.json({
+        success: true,
+        editedImage: {
+          url: result.imageURL,
+        },
+      })
+    }
+
+    // If async or still processing, poll for result
+    if (result.taskUUID) {
+      const editedUrl = await pollForResult(apiKey, result.taskUUID)
+      return NextResponse.json({
+        success: true,
+        editedImage: {
+          url: editedUrl,
+        },
+      })
+    }
+
+    return NextResponse.json(
+      { error: "Failed to extract edited image from Runware response" },
+      { status: 500 }
+    )
+  } catch (error) {
+    console.error("[Image Editing API Error]", error)
+    return NextResponse.json(
+      { error: "An unexpected error occurred during image editing." },
+      { status: 500 }
+    )
+  }
+}
+
+async function pollForResult(
+  apiKey: string,
+  taskUUID: string
+): Promise<string> {
+  for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+
+    const response = await fetch(`${RUNWARE_API_ENDPOINT}/getResponse`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        taskUUID,
+      }),
+    })
+
+    if (!response.ok) {
+      console.error("[Runware Status Error]", response.status)
+      continue
+    }
+
+    const data = await response.json()
+
+    if (!Array.isArray(data) || data.length === 0) {
+      continue
+    }
+
+    const result = data[0]
+
+    if (result.status === "succeeded" && result.imageURL) {
+      return result.imageURL
+    }
+
+    if (result.status === "failed") {
+      throw new Error(result.error || "Image editing failed on Runware's side.")
+    }
+
+    // Still processing, continue polling
+  }
+
+  throw new Error("Image editing timed out. Please try again.")
+}
 
     const body = await request.json()
     const { imageUrl, prompt } = body
