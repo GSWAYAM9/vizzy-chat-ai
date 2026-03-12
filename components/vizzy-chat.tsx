@@ -154,9 +154,12 @@ export function VizzyChat() {
 
     try {
       const isImageGen = isImageGenerationIntent(trimmedInput)
+      console.log("[v0] User input:", trimmedInput)
+      console.log("[v0] Is image generation intent:", isImageGen)
       
       // Check if user has uploaded an image and wants to enhance it
       const hasUploadedImage = uploadedImage !== null
+      console.log("[v0] Has uploaded image:", hasUploadedImage)
 
       if (hasUploadedImage && trimmedInput) {
         // Image enhancement flow - enhance uploaded image based on user description
@@ -249,6 +252,7 @@ export function VizzyChat() {
         )
       } else {
         // LLM chat flow
+        console.log("[v0] Using LLM chat flow")
         const conversationMessages = [
           ...messages,
           userMessage,
@@ -257,6 +261,7 @@ export function VizzyChat() {
           content: m.content,
         }))
 
+        console.log("[v0] Sending to chat API:", conversationMessages.length, "messages")
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -264,11 +269,14 @@ export function VizzyChat() {
         })
 
         const data = await response.json()
+        console.log("[v0] Chat API response status:", response.status)
+        console.log("[v0] Chat API response:", data)
 
         if (!response.ok) {
           throw new Error(data.error || "Failed to generate response")
         }
 
+        console.log("[v0] Chat response content:", data.content)
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
