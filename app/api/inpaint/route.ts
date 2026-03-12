@@ -59,9 +59,11 @@ export async function POST(request: NextRequest) {
     const data = await response.json()
     console.log("[v0] Runware response data:", JSON.stringify(data).substring(0, 500))
 
-    // Handle both array and object response formats
+    // Runware wraps response in a 'data' array
     let result = null
-    if (Array.isArray(data) && data.length > 0) {
+    if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+      result = data.data[0]
+    } else if (Array.isArray(data) && data.length > 0) {
       result = data[0]
     } else if (typeof data === 'object' && data !== null) {
       result = data
@@ -71,7 +73,20 @@ export async function POST(request: NextRequest) {
       throw new Error(`Unexpected Runware response format: ${JSON.stringify(data).substring(0, 200)}`)
     }
 
-    if (result.status === "succeeded" && result.imageURL) {
+    // Check for maskImageURL (the edited image)
+    if (result.maskImageURL) {
+      console.log("[v0] Mask image URL found:", result.maskImageURL)
+      return NextResponse.json({
+        success: true,
+        editedImage: {
+          url: result.maskImageURL,
+        },
+      })
+    }
+
+    // Check for imageURL (fallback)
+    if (result.imageURL) {
+      console.log("[v0] Image URL found:", result.imageURL)
       return NextResponse.json({
         success: true,
         editedImage: {
@@ -80,7 +95,9 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // If still processing (taskUUID present), poll for result
     if (result.taskUUID) {
+      console.log("[v0] Polling for result with taskUUID:", result.taskUUID)
       const editedUrl = await pollForResult(apiKey, result.taskUUID)
       return NextResponse.json({
         success: true,
@@ -119,13 +136,25 @@ async function pollForResult(apiKey: string, taskUUID: string): Promise<string> 
 
     const data = await response.json()
 
-    if (!Array.isArray(data) || data.length === 0) {
+    // Handle wrapped response
+    let result = null
+    if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+      result = data.data[0]
+    } else if (Array.isArray(data) && data.length > 0) {
+      result = data[0]
+    }
+
+    if (!result) {
       continue
     }
 
-    const result = data[0]
+    // Check for maskImageURL
+    if (result.maskImageURL) {
+      return result.maskImageURL
+    }
 
-    if (result.status === "succeeded" && result.imageURL) {
+    // Check for imageURL
+    if (result.imageURL) {
       return result.imageURL
     }
 
