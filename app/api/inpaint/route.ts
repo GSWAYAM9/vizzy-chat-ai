@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import sharp from 'sharp'
 
 const STABILITY_API_KEY = process.env.STABILITY_API_KEY
 const STABILITY_API_URL = 'https://api.stability.ai/v2beta/stable-image/edit/inpaint'
@@ -30,9 +31,14 @@ export async function POST(request: NextRequest) {
     }
     const imageBuffer = await imageResponse.arrayBuffer()
 
+    // Convert image to PNG format (required by Stability AI)
+    const pngBuffer = await sharp(imageBuffer)
+      .png()
+      .toBuffer()
+
     // Create FormData for Stability AI API
     const formData = new FormData()
-    formData.append('image', new Blob([imageBuffer], { type: 'image/png' }), 'image.png')
+    formData.append('image', new Blob([pngBuffer], { type: 'image/png' }), 'image.png')
     formData.append('prompt', prompt)
     formData.append('output_format', 'png')
 
