@@ -58,8 +58,10 @@ export async function POST(request: NextRequest) {
       throw new Error(`Stability AI API error: ${stabilityResponse.status}`)
     }
 
-    const imageBlob = await stabilityResponse.blob()
-    const base64Image = await blobToBase64(imageBlob)
+    const imageBuffer = await stabilityResponse.arrayBuffer()
+    const base64Image = Buffer.from(imageBuffer).toString('base64')
+
+    console.log('[v0] Image edited successfully')
 
     return NextResponse.json({
       editedImage: {
@@ -73,14 +75,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
-
-async function blobToBase64(blob: Blob): Promise<string> {
-  const buffer = await blob.arrayBuffer()
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i])
-  }
-  return btoa(binary)
 }
