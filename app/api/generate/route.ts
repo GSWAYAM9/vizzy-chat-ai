@@ -201,9 +201,9 @@ async function pollForResult(
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
+      body: JSON.stringify([{
         taskUUID,
-      }),
+      }]),
     })
 
     if (!response.ok) {
