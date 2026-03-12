@@ -76,23 +76,61 @@ export function ChatMessage({ message, onImageClick, onRetry }: ChatMessageProps
 
         {/* Image grid */}
         {message.images && message.images.length > 0 && (
-          <div
-            className={cn(
-              "grid gap-3 w-full",
-              message.images.length === 1 && "grid-cols-1 max-w-md",
-              message.images.length === 2 && "grid-cols-2 max-w-lg",
-              message.images.length >= 3 && "grid-cols-2 max-w-lg"
+          <div className="flex flex-col gap-4 w-full">
+            {/* Show uploaded image section if present */}
+            {message.uploadedImages && message.uploadedImages.length > 0 && (
+              <div className="w-full">
+                <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Your image:</p>
+                <div className="grid grid-cols-1 gap-3 max-w-md">
+                  {message.uploadedImages.map((img, index) => (
+                    <div
+                      key={index}
+                      className="relative overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
+                    >
+                      <div className="relative aspect-square overflow-hidden">
+                        <img
+                          src={img.url}
+                          alt={img.fileName}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute top-2 right-2 bg-blue-500/90 text-white text-xs px-2 py-1 rounded-full font-medium">
+                          Uploaded
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
-          >
-            {message.images.map((image, index) => (
-              <ImageCard
-                key={index}
-                url={image.url}
-                prompt={image.prompt}
-                index={index}
-                onExpand={() => onImageClick(image.url, image.prompt)}
-              />
-            ))}
+            
+            {/* Generated/Enhanced images section */}
+            {message.images.length > 0 && (
+              <div className="w-full">
+                {message.uploadedImages && message.uploadedImages.length > 0 && (
+                  <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Enhanced version:</p>
+                )}
+                <div
+                  className={cn(
+                    "grid gap-3 w-full",
+                    message.images.length === 1 && "grid-cols-1 max-w-md",
+                    message.images.length === 2 && "grid-cols-2 max-w-lg",
+                    message.images.length >= 3 && "grid-cols-2 max-w-lg"
+                  )}
+                >
+                  {message.images.map((image, index) => (
+                    <ImageCard
+                      key={index}
+                      url={image.url}
+                      prompt={image.prompt}
+                      index={index}
+                      isUploaded={image.isUploaded}
+                      onExpand={() => onImageClick(image.url, image.prompt)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -122,11 +160,13 @@ function ImageCard({
   url,
   prompt,
   index,
+  isUploaded,
   onExpand,
 }: {
   url: string
   prompt: string
   index: number
+  isUploaded?: boolean
   onExpand: () => void
 }) {
   const [loaded, setLoaded] = useState(false)

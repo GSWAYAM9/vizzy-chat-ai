@@ -117,6 +117,7 @@ export function VizzyChat() {
   const [aspectRatio, setAspectRatio] = useState("1:1")
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [lightboxPrompt, setLightboxPrompt] = useState("")
+  const [uploadedImage, setUploadedImage] = useState<{ url: string; fileName: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { theme, setTheme } = useTheme()
 
@@ -153,8 +154,58 @@ export function VizzyChat() {
 
     try {
       const isImageGen = isImageGenerationIntent(trimmedInput)
+      
+      // Check if user has uploaded an image and wants to enhance it
+      const hasUploadedImage = uploadedImage !== null
 
-      if (isImageGen) {
+      if (hasUploadedImage && trimmedInput) {
+        // Image enhancement flow - enhance uploaded image based on user description
+        const response = await fetch("/api/enhance-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageUrl: uploadedImage.url,
+            prompt: trimmedInput,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to enhance image")
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? {
+                  ...m,
+                  content: `I've enhanced your uploaded image based on: "${trimmedInput}"`,
+                  images: [
+                    {
+                      url: data.enhancedImage.url,
+                      prompt: trimmedInput,
+                      isUploaded: true,
+                    },
+                  ],
+                  uploadedImages: [
+                    {
+                      id: generateId(),
+                      url: uploadedImage.url,
+                      fileName: uploadedImage.fileName,
+                      fileSize: 0,
+                      uploadedAt: Date.now(),
+                    },
+                  ],
+                  isLoading: false,
+                }
+              : m
+          )
+        )
+        
+        // Clear uploaded image after enhancement
+        setUploadedImage(null)
+      } else if (isImageGen) {
         // Image generation flow
         const refinedPrompt = buildRefinedPrompt(
           [...messages, userMessage],
@@ -243,7 +294,7 @@ export function VizzyChat() {
     } finally {
       setIsLoading(false)
     }
-  }, [input, isLoading, messages, aspectRatio])
+  }, [input, isLoading, messages, aspectRatio, uploadedImage])
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
     setInput(suggestion)
@@ -372,6 +423,14 @@ export function VizzyChat() {
           isLoading={isLoading}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
+          uploadedImage={uploadedImage}
+          onImageUpload={(imageUrl) => {
+            setUploadedImage({
+              url: imageUrl,
+              fileName: 'uploaded-image.png',
+            })
+          }}
+          onImageRemove={() => setUploadedImage(null)}
         />
       </div>
 
