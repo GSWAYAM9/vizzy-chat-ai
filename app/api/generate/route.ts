@@ -157,73 +157,32 @@ async function generateSingleImage(
 
   const data = await response.json()
 
-  // Runware returns an array of responses
-  if (!Array.isArray(data) || data.length === 0) {
+  // Runware wraps response in { data: [...] } format
+  let responseArray = null
+  if (data.data && Array.isArray(data.data)) {
+    responseArray = data.data
+  } else if (Array.isArray(data)) {
+    responseArray = data
+  }
+
+  if (!responseArray || responseArray.length === 0) {
+    console.error("[v0] Unexpected response format from Runware")
     throw new Error("Unexpected response format from Runware API")
   }
 
-  const result = data[0]
+  const result = responseArray[0]
 
-  // Check for completion in sync mode
-  if (result.status === "succeeded" && result.imageURL) {
+  // Check for immediate completion - imageURL means sync response already succeeded
+  if (result.imageURL) {
+    console.log("[v0] Image generated successfully")
     return {
       url: result.imageURL,
       seed: result.seed,
     }
   }
 
-  // If async or still processing, poll for result
-  if (result.taskUUID) {
-    return pollForResult(apiKey, result.taskUUID)
-  }
-
-  throw new Error("Failed to extract image from Runware response")
-}
-
-async function pollForResult(
-  apiKey: string,
-  taskUUID: string
-): Promise<{ url: string; seed?: number }> {
-  for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
-
-    const response = await fetch(`${RUNWARE_API_ENDPOINT}/getResponse`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        taskUUID,
-      }),
-    })
-
-    if (!response.ok) {
-      console.error("[Runware Status Error]", response.status)
-      continue
-    }
-
-    const data = await response.json()
-
-    if (!Array.isArray(data) || data.length === 0) {
-      continue
-    }
-
-    const result = data[0]
-
-    if (result.status === "succeeded" && result.imageURL) {
-      return {
-        url: result.imageURL,
-        seed: result.seed,
-      }
-    }
-
-    if (result.status === "failed") {
-      throw new Error(result.error || "Image generation failed on Runware's side.")
-    }
-
-    // Still processing, continue polling
-  }
-
-  throw new Error("Image generation timed out. Please try again.")
+  // For sync delivery, we should always get imageURL immediately
+  // If we don't have it, the generation failed
+  console.error("[v0] No imageURL in sync response")
+  throw new Error("Image generation failed: no image URL in response")
 }
