@@ -156,7 +156,6 @@ async function generateSingleImage(
   }
 
   const data = await response.json()
-  console.log("[v0] Full response data:", JSON.stringify(data).substring(0, 500))
 
   // Runware wraps response in { data: [...] } format
   let responseArray = null
@@ -167,20 +166,15 @@ async function generateSingleImage(
   }
 
   if (!responseArray || responseArray.length === 0) {
-    console.error("[v0] Unexpected response format:", JSON.stringify(data).substring(0, 300))
+    console.error("[v0] Unexpected response format from Runware")
     throw new Error("Unexpected response format from Runware API")
   }
 
   const result = responseArray[0]
 
-  console.log("[v0] Result keys:", Object.keys(result))
-  console.log("[v0] Result:", JSON.stringify(result).substring(0, 300))
-  console.log("[v0] Has imageURL:", !!result.imageURL)
-  console.log("[v0] Has taskUUID:", !!result.taskUUID)
-
   // Check for immediate completion - imageURL means sync response already succeeded
   if (result.imageURL) {
-    console.log("[v0] Image already available from sync response")
+    console.log("[v0] Image generated successfully")
     return {
       url: result.imageURL,
       seed: result.seed,
@@ -188,7 +182,7 @@ async function generateSingleImage(
   }
 
   // For sync delivery, we should always get imageURL immediately
-  // If we don't have it, the generation failed - don't attempt polling
-  console.error("[v0] No imageURL in sync response. Result:", JSON.stringify(result).substring(0, 300))
+  // If we don't have it, the generation failed
+  console.error("[v0] No imageURL in sync response")
   throw new Error("Image generation failed: no image URL in response")
 }
