@@ -57,12 +57,19 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json()
+    console.log("[v0] Runware response data:", JSON.stringify(data).substring(0, 500))
 
-    if (!Array.isArray(data) || data.length === 0) {
-      throw new Error("Unexpected Runware response format")
+    // Handle both array and object response formats
+    let result = null
+    if (Array.isArray(data) && data.length > 0) {
+      result = data[0]
+    } else if (typeof data === 'object' && data !== null) {
+      result = data
     }
 
-    const result = data[0]
+    if (!result) {
+      throw new Error(`Unexpected Runware response format: ${JSON.stringify(data).substring(0, 200)}`)
+    }
 
     if (result.status === "succeeded" && result.imageURL) {
       return NextResponse.json({
@@ -83,7 +90,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    throw new Error("Failed to process image")
+    throw new Error(`Failed to process image. Response: ${JSON.stringify(result).substring(0, 200)}`)
   } catch (error) {
     console.error("[Inpaint Error]", error)
     return NextResponse.json(
