@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
 
+// Runware imageMasking endpoint for object removal and image editing
 const RUNWARE_API_ENDPOINT = "https://api.runware.ai/v1"
 const MAX_POLL_ATTEMPTS = 120
 const POLL_INTERVAL_MS = 1000
