@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { v4 as uuidv4 } from "uuid"
 
 const RUNWARE_API_ENDPOINT = "https://api.runware.ai/v1"
 
@@ -7,7 +8,7 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.RUNWARE_API_KEY
     if (!apiKey) {
       return NextResponse.json(
-        { error: "RUNWARE_API_KEY is not configured" },
+        { error: "RUNWARE_API_KEY not configured" },
         { status: 500 }
       )
     }
@@ -17,14 +18,13 @@ export async function POST(request: NextRequest) {
 
     if (!imageUrl || !prompt) {
       return NextResponse.json(
-        { error: "Image URL and prompt are required" },
+        { error: "Image URL and prompt required" },
         { status: 400 }
       )
     }
 
-    console.log("[v0] Inpaint request:", prompt)
+    const taskUUID = uuidv4()
 
-    // Use imageMasking for object removal
     const response = await fetch(`${RUNWARE_API_ENDPOINT}/imageMasking`, {
       method: "POST",
       headers: {
@@ -34,37 +34,50 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify([
         {
           taskType: "imageMasking",
+          taskUUID,
           inputImage: imageUrl,
-          maskPrompt: prompt.trim(),
+          maskPrompt: prompt,
           outputType: "URL",
+          outputFormat: "jpg",
+          deliveryMethod: "sync",
         },
       ]),
     })
 
-    const data = await response.json()
-
     if (!response.ok) {
-      console.error("[v0] Runware error:", data)
-      throw new Error(data.errors?.[0]?.message || "Failed to process image")
+      const error = await response.text()
+      console.error("[v0] Runware error:", error)
+      return NextResponse.json(
+        { error: "Image editing failed" },
+        { status: response.status }
+      )
     }
 
-    // Extract result from wrapped response
+    const data = await response.json()
     const result = data.data?.[0] || data[0]
-    if (!result || !result.maskImageURL) {
-      console.error("[v0] No maskImageURL in response:", result)
-      throw new Error("Failed to generate edited image")
+
+    if (!result) {
+      return NextResponse.json(
+        { error: "Invalid response from Runware" },
+        { status: 500 }
+      )
     }
 
-    return NextResponse.json({
-      success: true,
-      editedImage: {
-        url: result.maskImageURL,
-      },
-    })
-  } catch (error) {
-    console.error("[Inpaint Error]", error)
+    if (result.maskImageURL) {
+      return NextResponse.json({
+        success: true,
+        editedImage: { url: result.maskImageURL },
+      })
+    }
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Image editing failed" },
+      { error: "No edited image in response" },
+      { status: 500 }
+    )
+  } catch (error) {
+    console.error("[v0] Inpaint error:", error)
+    return NextResponse.json(
+      { error: "Image editing failed" },
       { status: 500 }
     )
   }
