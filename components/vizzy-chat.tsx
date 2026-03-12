@@ -209,42 +209,16 @@ export function VizzyChat() {
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
       if (hasUploadedImage) {
-        // Image enhancement flow - enhance uploaded image based on user description
-        // This takes priority over image generation
-        console.log("[v0] Calling enhance-image endpoint")
-        console.log("[v0] Uploaded image URL:", uploadedImage?.url)
-        console.log("[v0] Enhancement prompt:", trimmedInput)
+        // Show uploaded image in chat as reference
+        // User can discuss it with the AI or use it for context
+        console.log("[v0] Showing uploaded image in chat")
         
-        const response = await fetch("/api/enhance-image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageUrl: uploadedImage!.url,
-            prompt: trimmedInput,
-          }),
-        })
-
-        const data = await response.json()
-        console.log("[v0] Enhance response status:", response.status)
-        console.log("[v0] Enhance response:", data)
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to enhance image")
-        }
-
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I've enhanced your uploaded image based on: "${trimmedInput}"`,
-                  images: [
-                    {
-                      url: data.enhancedImage.url,
-                      prompt: trimmedInput,
-                      isUploaded: true,
-                    },
-                  ],
+                  content: `I can see your uploaded image. What would you like to do with it? I can help describe it, suggest improvements, or generate variations based on its style.`,
                   uploadedImages: [
                     {
                       id: generateId(),
@@ -260,7 +234,7 @@ export function VizzyChat() {
           )
         )
         
-        // Clear uploaded image after enhancement
+        // Clear uploaded image after displaying
         setUploadedImage(null)
       } else if (isImageGen) {
         // Image generation flow
