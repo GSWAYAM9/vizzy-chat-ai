@@ -29,12 +29,16 @@ export async function POST(request: NextRequest) {
     if (!imageResponse.ok) {
       throw new Error('Failed to fetch image from URL')
     }
-    const imageBuffer = await imageResponse.arrayBuffer()
+    const uploadedImageBuffer = await imageResponse.arrayBuffer()
+
+    console.log('[v0] Converting image to PNG format')
 
     // Convert image to PNG format (required by Stability AI)
-    const pngBuffer = await sharp(imageBuffer)
+    const pngBuffer = await sharp(Buffer.from(uploadedImageBuffer))
       .png()
       .toBuffer()
+
+    console.log('[v0] PNG conversion complete, sending to Stability AI')
 
     // Create FormData for Stability AI API
     const formData = new FormData()
@@ -47,7 +51,7 @@ export async function POST(request: NextRequest) {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${STABILITY_API_KEY}`,
-        'Accept': 'image/*',
+        'Accept': 'image/png',
       },
       body: formData,
     })
@@ -58,8 +62,8 @@ export async function POST(request: NextRequest) {
       throw new Error(`Stability AI API error: ${stabilityResponse.status}`)
     }
 
-    const imageBuffer = await stabilityResponse.arrayBuffer()
-    const base64Image = Buffer.from(imageBuffer).toString('base64')
+    const resultImageBuffer = await stabilityResponse.arrayBuffer()
+    const base64Image = Buffer.from(resultImageBuffer).toString('base64')
 
     console.log('[v0] Image edited successfully')
 
