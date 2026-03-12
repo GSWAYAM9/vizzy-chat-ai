@@ -157,12 +157,20 @@ async function generateSingleImage(
 
   const data = await response.json()
 
-  // Runware returns an array of responses
-  if (!Array.isArray(data) || data.length === 0) {
+  // Runware wraps response in { data: [...] } format
+  let responseArray = null
+  if (data.data && Array.isArray(data.data)) {
+    responseArray = data.data
+  } else if (Array.isArray(data)) {
+    responseArray = data
+  }
+
+  if (!responseArray || responseArray.length === 0) {
+    console.error("[v0] Unexpected response format:", JSON.stringify(data).substring(0, 300))
     throw new Error("Unexpected response format from Runware API")
   }
 
-  const result = data[0]
+  const result = responseArray[0]
 
   // Check for completion in sync mode
   if (result.status === "succeeded" && result.imageURL) {
@@ -205,11 +213,19 @@ async function pollForResult(
 
     const data = await response.json()
 
-    if (!Array.isArray(data) || data.length === 0) {
+    // Handle wrapped response format
+    let responseArray = null
+    if (data.data && Array.isArray(data.data)) {
+      responseArray = data.data
+    } else if (Array.isArray(data)) {
+      responseArray = data
+    }
+
+    if (!responseArray || responseArray.length === 0) {
       continue
     }
 
-    const result = data[0]
+    const result = responseArray[0]
 
     if (result.status === "succeeded" && result.imageURL) {
       return {
