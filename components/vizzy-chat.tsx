@@ -209,8 +209,56 @@ export function VizzyChat() {
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
 
-      if (hasUploadedImage) {
-        // Display uploaded image in chat
+
+      if (hasUploadedImage && trimmedInput) {
+        // User provided an instruction with uploaded image - use inpaint
+        console.log("[v0] Calling inpaint endpoint for object removal")
+        
+        const response = await fetch("/api/inpaint", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageUrl: uploadedImage!.url,
+            prompt: trimmedInput,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to edit image")
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? {
+                  ...m,
+                  content: `I've edited your image: ${trimmedInput}`,
+                  images: [
+                    {
+                      url: data.editedImage.url,
+                      prompt: trimmedInput,
+                    },
+                  ],
+                  uploadedImages: [
+                    {
+                      id: generateId(),
+                      url: uploadedImage!.url,
+                      fileName: uploadedImage!.fileName,
+                      fileSize: 0,
+                      uploadedAt: Date.now(),
+                    },
+                  ],
+                  isLoading: false,
+                }
+              : m
+          )
+        )
+        
+        setUploadedImage(null)
+      } else if (hasUploadedImage) {
+        // Display uploaded image in chat without instruction
         console.log("[v0] Displaying uploaded image")
         
         setMessages((prev) =>
@@ -218,7 +266,7 @@ export function VizzyChat() {
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I can see your uploaded image. ${trimmedInput ? `You mentioned: "${trimmedInput}". ` : ""}I can discuss it or generate new images with Runware.`,
+                  content: `I can see your uploaded image. What would you like me to edit? Describe the changes and I'll apply them.`,
                   uploadedImages: [
                     {
                       id: generateId(),
