@@ -20,19 +20,66 @@ function generateId() {
 }
 
 function isImageGenerationIntent(input: string): boolean {
-  const imageKeywords = [
+  const lowerInput = input.toLowerCase()
+  
+  // Strong image generation keywords - these clearly indicate image creation
+  const strongKeywords = [
     "generate", "create", "make", "draw", "paint", "design", "illustrate",
-    "image", "picture", "photo", "render", "visualization", "visual",
-    "poster", "banner", "logo", "icon", "artwork", "art", "style",
-    "scene", "landscape", "portrait", "concept", "character",
-    "show", "display", "generate variations", "variations", "versions",
-    "in the style of", "looking like", "similar to", "imagine",
-    "moodboard", "mood board", "aesthetic", "vibe",
+    "render", "show me", "imagine", "visualize", "picture of",
+    "image of", "photo of", "artwork of", "concept art",
+    "i want", "i need", "can you", "please make", "please generate",
+    "please create", "please draw",
   ]
-
-  return imageKeywords.some((keyword) =>
-    input.toLowerCase().includes(keyword)
+  
+  // Weak keywords that need additional context - words that could be in chat
+  const weakKeywords = ["style", "aesthetic", "vibe", "art", "character", "scene", "landscape"]
+  
+  // Check if it starts with clear generation intent
+  const hasStrongIntent = strongKeywords.some((keyword) =>
+    lowerInput.includes(keyword)
   )
+  
+  if (hasStrongIntent) {
+    return true
+  }
+  
+  // For weak keywords, require a strong generation verb nearby
+  const hasWeakKeyword = weakKeywords.some((keyword) =>
+    lowerInput.includes(keyword)
+  )
+  
+  if (hasWeakKeyword) {
+    // Only treat as image generation if paired with creation verbs
+    const generationVerbs = ["in", "for", "of", "with", "a ", "the "]
+    const beforeKeyword = generationVerbs.some((verb) => {
+      const keywordIndex = lowerInput.indexOf("style") + 
+                          lowerInput.indexOf("aesthetic") +
+                          lowerInput.indexOf("vibe") +
+                          lowerInput.indexOf("art") +
+                          lowerInput.indexOf("character") +
+                          lowerInput.indexOf("scene") +
+                          lowerInput.indexOf("landscape")
+      return keywordIndex > 0
+    })
+    
+    // More conservative: only consider weak keywords as generation intent
+    // if they're in the context of "create X in style Y" or similar
+    const generationPatterns = [
+      /create.*style/i,
+      /generate.*style/i,
+      /make.*style/i,
+      /design.*style/i,
+      /in.*style of/i,
+      /style.*image/i,
+      /make.*character/i,
+      /create.*character/i,
+      /design.*character/i,
+    ]
+    
+    return generationPatterns.some((pattern) => pattern.test(lowerInput))
+  }
+  
+  return false
 }
 
 function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): string {
@@ -154,22 +201,32 @@ export function VizzyChat() {
 
     try {
       const isImageGen = isImageGenerationIntent(trimmedInput)
+      console.log("[v0] User input:", trimmedInput)
+      console.log("[v0] Is image generation intent:", isImageGen)
       
       // Check if user has uploaded an image and wants to enhance it
       const hasUploadedImage = uploadedImage !== null
+      console.log("[v0] Has uploaded image:", hasUploadedImage)
 
-      if (hasUploadedImage && trimmedInput) {
+      if (hasUploadedImage) {
         // Image enhancement flow - enhance uploaded image based on user description
+        // This takes priority over image generation
+        console.log("[v0] Calling enhance-image endpoint")
+        console.log("[v0] Uploaded image URL:", uploadedImage?.url)
+        console.log("[v0] Enhancement prompt:", trimmedInput)
+        
         const response = await fetch("/api/enhance-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            imageUrl: uploadedImage.url,
+            imageUrl: uploadedImage!.url,
             prompt: trimmedInput,
           }),
         })
 
         const data = await response.json()
+        console.log("[v0] Enhance response status:", response.status)
+        console.log("[v0] Enhance response:", data)
 
         if (!response.ok) {
           throw new Error(data.error || "Failed to enhance image")
@@ -191,8 +248,8 @@ export function VizzyChat() {
                   uploadedImages: [
                     {
                       id: generateId(),
-                      url: uploadedImage.url,
-                      fileName: uploadedImage.fileName,
+                      url: uploadedImage!.url,
+                      fileName: uploadedImage!.fileName,
                       fileSize: 0,
                       uploadedAt: Date.now(),
                     },
@@ -249,6 +306,7 @@ export function VizzyChat() {
         )
       } else {
         // LLM chat flow
+        console.log("[v0] Using LLM chat flow")
         const conversationMessages = [
           ...messages,
           userMessage,
@@ -257,6 +315,7 @@ export function VizzyChat() {
           content: m.content,
         }))
 
+        console.log("[v0] Sending to chat API:", conversationMessages.length, "messages")
         const response = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -264,11 +323,14 @@ export function VizzyChat() {
         })
 
         const data = await response.json()
+        console.log("[v0] Chat API response status:", response.status)
+        console.log("[v0] Chat API response:", data)
 
         if (!response.ok) {
           throw new Error(data.error || "Failed to generate response")
         }
 
+        console.log("[v0] Chat response content:", data.content)
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
