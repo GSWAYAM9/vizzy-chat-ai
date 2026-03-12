@@ -208,18 +208,25 @@ export function VizzyChat() {
       const hasUploadedImage = uploadedImage !== null
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
-      if (hasUploadedImage && trimmedInput) {
+      if (hasUploadedImage) {
         // Image enhancement flow - enhance uploaded image based on user description
+        // This takes priority over image generation
+        console.log("[v0] Calling enhance-image endpoint")
+        console.log("[v0] Uploaded image URL:", uploadedImage?.url)
+        console.log("[v0] Enhancement prompt:", trimmedInput)
+        
         const response = await fetch("/api/enhance-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            imageUrl: uploadedImage.url,
+            imageUrl: uploadedImage!.url,
             prompt: trimmedInput,
           }),
         })
 
         const data = await response.json()
+        console.log("[v0] Enhance response status:", response.status)
+        console.log("[v0] Enhance response:", data)
 
         if (!response.ok) {
           throw new Error(data.error || "Failed to enhance image")
@@ -241,8 +248,8 @@ export function VizzyChat() {
                   uploadedImages: [
                     {
                       id: generateId(),
-                      url: uploadedImage.url,
-                      fileName: uploadedImage.fileName,
+                      url: uploadedImage!.url,
+                      fileName: uploadedImage!.fileName,
                       fileSize: 0,
                       uploadedAt: Date.now(),
                     },
