@@ -208,59 +208,8 @@ export function VizzyChat() {
       const hasUploadedImage = uploadedImage !== null
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
-      if (hasUploadedImage && trimmedInput) {
-        // User provided an editing instruction with uploaded image
-        // Create a prompt that emphasizes this is about editing the uploaded image
-        console.log("[v0] Generating edited image based on uploaded image + instruction")
-        
-        // Build a more explicit editing prompt
-        const editingPrompt = `Edit this image: ${trimmedInput}. Keep the same scene and style, only make the specific requested changes.`
-        
-        const response = await fetch("/api/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: editingPrompt,
-            aspect_ratio: aspectRatio,
-            num_results: 1,
-          }),
-        })
-
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || "Failed to edit image")
-        }
-
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMessage.id
-              ? {
-                  ...m,
-                  content: `I've edited your image: ${trimmedInput}`,
-                  images: data.images.map((img: { url: string; seed?: number }) => ({
-                    url: img.url,
-                    prompt: editingPrompt,
-                    seed: img.seed,
-                  })),
-                  uploadedImages: [
-                    {
-                      id: generateId(),
-                      url: uploadedImage!.url,
-                      fileName: uploadedImage!.fileName,
-                      fileSize: 0,
-                      uploadedAt: Date.now(),
-                    },
-                  ],
-                  isLoading: false,
-                }
-              : m
-          )
-        )
-        
-        setUploadedImage(null)
-      } else if (hasUploadedImage) {
-        // Display uploaded image without instruction
+      if (hasUploadedImage) {
+        // Display uploaded image in chat for discussion
         console.log("[v0] Displaying uploaded image")
         
         setMessages((prev) =>
@@ -268,7 +217,7 @@ export function VizzyChat() {
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I can see your uploaded image. What would you like me to do? I can describe it, suggest improvements, or generate new images based on it.`,
+                  content: `I can see your uploaded image. ${trimmedInput ? `You mentioned: "${trimmedInput}". ` : ""}I can help you describe it, discuss it, or generate new images with Runware's text-to-image generation.`,
                   uploadedImages: [
                     {
                       id: generateId(),
