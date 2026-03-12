@@ -156,6 +156,7 @@ async function generateSingleImage(
   }
 
   const data = await response.json()
+  console.log("[v0] Full response data:", JSON.stringify(data).substring(0, 500))
 
   // Runware wraps response in { data: [...] } format
   let responseArray = null
@@ -173,6 +174,7 @@ async function generateSingleImage(
   const result = responseArray[0]
 
   console.log("[v0] Result keys:", Object.keys(result))
+  console.log("[v0] Result:", JSON.stringify(result).substring(0, 300))
   console.log("[v0] Has imageURL:", !!result.imageURL)
   console.log("[v0] Has taskUUID:", !!result.taskUUID)
 
