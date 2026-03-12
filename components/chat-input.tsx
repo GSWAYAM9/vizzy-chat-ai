@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useCallback, useEffect } from "react"
+import { useRef, useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Tooltip,
@@ -13,6 +13,8 @@ import {
   RectangleHorizontal,
   RectangleVertical,
   Loader2,
+  ImagePlus,
+  X,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -40,6 +42,9 @@ interface ChatInputProps {
   isLoading: boolean
   aspectRatio: string
   onAspectRatioChange: (ratio: string) => void
+  uploadedImage?: { url: string; fileName: string } | null
+  onImageUpload?: (imageUrl: string) => void
+  onImageRemove?: () => void
 }
 
 export function ChatInput({
@@ -49,13 +54,91 @@ export function ChatInput({
   isLoading,
   aspectRatio,
   onAspectRatioChange,
+  uploadedImage,
+  onImageUpload,
+  onImageRemove,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   // Auto-focus textarea on mount
   useEffect(() => {
     textareaRef.current?.focus()
   }, [])
+
+  const handleImageSelect = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        setUploadError('Please select an image file')
+        return
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        setUploadError('File size must be less than 10MB')
+        return
+      }
+
+      setIsUploading(true)
+      setUploadError(null)
+
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Upload failed')
+        }
+
+        onImageUpload?.(data.image.url)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Upload failed'
+        setUploadError(errorMessage)
+      } finally {
+        setIsUploading(false)
+      }
+    },
+    [onImageUpload]
+  )
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (file) {
+        handleImageSelect(file)
+      }
+      // Reset input so same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    },
+    [handleImageSelect]
+  )
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const file = e.dataTransfer.files?.[0]
+      if (file) {
+        handleImageSelect(file)
+      }
+    },
+    [handleImageSelect]
+  )
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -90,13 +173,54 @@ export function ChatInput({
 
   return (
     <div className="w-full max-w-3xl mx-auto px-4">
+      {/* Upload error message */}
+      {uploadError && (
+        <div className="mb-2 text-xs text-red-500 bg-red-50 dark:bg-red-950 p-2 rounded-lg">
+          {uploadError}
+        </div>
+      )}
+
       <div
         className={cn(
           "relative flex items-end gap-2 rounded-2xl border bg-card p-2.5 shadow-sm transition-all duration-300",
           "focus-within:shadow-md focus-within:border-accent/40",
           isLoading && "opacity-80"
         )}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileInputChange}
+          className="hidden"
+          aria-label="Upload image"
+        />
+
+        {/* Image upload button */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              variant="ghost"
+              size="icon-sm"
+              disabled={isUploading}
+              className="flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl"
+              aria-label="Upload image"
+            >
+              {isUploading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <ImagePlus className="size-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            {isUploading ? 'Uploading...' : 'Upload image'}
+          </TooltipContent>
+        </Tooltip>
         {/* Aspect ratio picker */}
         <DropdownMenu>
           <Tooltip>
@@ -143,6 +267,34 @@ export function ChatInput({
             })}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Uploaded image preview */}
+        {uploadedImage && (
+          <div className="absolute left-2.5 bottom-full mb-2 flex items-center gap-2 bg-card border border-accent/20 rounded-lg p-1.5 shadow-sm">
+            <div className="relative w-12 h-12 rounded-md overflow-hidden bg-secondary">
+              <img
+                src={uploadedImage.url}
+                alt={uploadedImage.fileName}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="flex-1 min-w-0 px-1">
+              <p className="text-xs font-medium truncate text-foreground">
+                {uploadedImage.fileName}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Ready to enhance</p>
+            </div>
+            <Button
+              onClick={() => onImageRemove?.()}
+              variant="ghost"
+              size="icon-sm"
+              className="flex-shrink-0 h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              aria-label="Remove image"
+            >
+              <X className="size-3" />
+            </Button>
+          </div>
+        )}
 
         {/* Textarea */}
         <textarea

@@ -19,6 +19,22 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+function isImageGenerationIntent(input: string): boolean {
+  const imageKeywords = [
+    "generate", "create", "make", "draw", "paint", "design", "illustrate",
+    "image", "picture", "photo", "render", "visualization", "visual",
+    "poster", "banner", "logo", "icon", "artwork", "art", "style",
+    "scene", "landscape", "portrait", "concept", "character",
+    "show", "display", "generate variations", "variations", "versions",
+    "in the style of", "looking like", "similar to", "imagine",
+    "moodboard", "mood board", "aesthetic", "vibe",
+  ]
+
+  return imageKeywords.some((keyword) =>
+    input.toLowerCase().includes(keyword)
+  )
+}
+
 function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): string {
   const previousPrompts = messages
     .filter((m) => m.role === "user")
@@ -101,6 +117,7 @@ export function VizzyChat() {
   const [aspectRatio, setAspectRatio] = useState("1:1")
   const [lightboxImage, setLightboxImage] = useState<string | null>(null)
   const [lightboxPrompt, setLightboxPrompt] = useState("")
+  const [uploadedImage, setUploadedImage] = useState<{ url: string; fileName: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { theme, setTheme } = useTheme()
 
@@ -136,46 +153,134 @@ export function VizzyChat() {
     setIsLoading(true)
 
     try {
-      const refinedPrompt = buildRefinedPrompt(
-        [...messages, userMessage],
-        trimmedInput
-      )
-      const numResults = parseNumImages(trimmedInput)
+      const isImageGen = isImageGenerationIntent(trimmedInput)
+      
+      // Check if user has uploaded an image and wants to enhance it
+      const hasUploadedImage = uploadedImage !== null
 
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: refinedPrompt,
-          aspect_ratio: aspectRatio,
-          num_results: numResults,
-        }),
-      })
+      if (hasUploadedImage && trimmedInput) {
+        // Image enhancement flow - enhance uploaded image based on user description
+        const response = await fetch("/api/enhance-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageUrl: uploadedImage.url,
+            prompt: trimmedInput,
+          }),
+        })
 
-      const data = await response.json()
+        const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate image")
-      }
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to enhance image")
+        }
 
-      const assistantText = generateAssistantText(data.images.length, refinedPrompt)
-
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMessage.id
-            ? {
-                ...m,
-                content: assistantText,
-                images: data.images.map((img: { url: string; seed?: number }) => ({
-                  url: img.url,
-                  prompt: refinedPrompt,
-                  seed: img.seed,
-                })),
-                isLoading: false,
-              }
-            : m
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? {
+                  ...m,
+                  content: `I've enhanced your uploaded image based on: "${trimmedInput}"`,
+                  images: [
+                    {
+                      url: data.enhancedImage.url,
+                      prompt: trimmedInput,
+                      isUploaded: true,
+                    },
+                  ],
+                  uploadedImages: [
+                    {
+                      id: generateId(),
+                      url: uploadedImage.url,
+                      fileName: uploadedImage.fileName,
+                      fileSize: 0,
+                      uploadedAt: Date.now(),
+                    },
+                  ],
+                  isLoading: false,
+                }
+              : m
+          )
         )
-      )
+        
+        // Clear uploaded image after enhancement
+        setUploadedImage(null)
+      } else if (isImageGen) {
+        // Image generation flow
+        const refinedPrompt = buildRefinedPrompt(
+          [...messages, userMessage],
+          trimmedInput
+        )
+        const numResults = parseNumImages(trimmedInput)
+
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: refinedPrompt,
+            aspect_ratio: aspectRatio,
+            num_results: numResults,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to generate image")
+        }
+
+        const assistantText = generateAssistantText(data.images.length, refinedPrompt)
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? {
+                  ...m,
+                  content: assistantText,
+                  images: data.images.map((img: { url: string; seed?: number }) => ({
+                    url: img.url,
+                    prompt: refinedPrompt,
+                    seed: img.seed,
+                  })),
+                  isLoading: false,
+                }
+              : m
+          )
+        )
+      } else {
+        // LLM chat flow
+        const conversationMessages = [
+          ...messages,
+          userMessage,
+        ].map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
+
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: conversationMessages }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to generate response")
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? {
+                  ...m,
+                  content: data.content,
+                  isLoading: false,
+                }
+              : m
+          )
+        )
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Something went wrong"
@@ -189,7 +294,7 @@ export function VizzyChat() {
     } finally {
       setIsLoading(false)
     }
-  }, [input, isLoading, messages, aspectRatio])
+  }, [input, isLoading, messages, aspectRatio, uploadedImage])
 
   const handleSuggestionClick = useCallback((suggestion: string) => {
     setInput(suggestion)
@@ -318,6 +423,14 @@ export function VizzyChat() {
           isLoading={isLoading}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
+          uploadedImage={uploadedImage}
+          onImageUpload={(imageUrl) => {
+            setUploadedImage({
+              url: imageUrl,
+              fileName: 'uploaded-image.png',
+            })
+          }}
+          onImageRemove={() => setUploadedImage(null)}
         />
       </div>
 
