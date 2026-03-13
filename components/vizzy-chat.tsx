@@ -208,46 +208,39 @@ export function VizzyChat() {
       const hasUploadedImage = uploadedImage !== null
       console.log("[v0] Has uploaded image:", hasUploadedImage)
 
-      if (hasUploadedImage && trimmedInput) {
-        // User provided a description/instruction with uploaded image
-        // Generate new image based on the instruction
-        console.log("[v0] Generating image based on uploaded image + instruction")
-        
-        const refinedPrompt = buildRefinedPrompt(
-          [...messages, userMessage],
-          trimmedInput
-        )
-        const numResults = parseNumImages(trimmedInput)
 
-        const response = await fetch("/api/generate", {
+
+      if (hasUploadedImage && trimmedInput) {
+        // User provided an editing instruction with uploaded image - use Stability AI inpainting
+        console.log("[v0] Calling inpaint endpoint with Stability AI")
+        
+        const response = await fetch("/api/inpaint", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt: refinedPrompt,
-            aspect_ratio: aspectRatio,
-            num_results: numResults,
+            imageUrl: uploadedImage!.url,
+            prompt: trimmedInput,
           }),
         })
 
         const data = await response.json()
 
         if (!response.ok) {
-          throw new Error(data.error || "Failed to generate image")
+          throw new Error(data.error || "Failed to edit image")
         }
-
-        const assistantText = generateAssistantText(data.images.length, refinedPrompt)
 
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: assistantText,
-                  images: data.images.map((img: { url: string; seed?: number }) => ({
-                    url: img.url,
-                    prompt: refinedPrompt,
-                    seed: img.seed,
-                  })),
+                  content: `I've edited your image: ${trimmedInput}`,
+                  images: [
+                    {
+                      url: data.editedImage.url,
+                      prompt: trimmedInput,
+                    },
+                  ],
                   uploadedImages: [
                     {
                       id: generateId(),
@@ -265,7 +258,7 @@ export function VizzyChat() {
         
         setUploadedImage(null)
       } else if (hasUploadedImage) {
-        // Display uploaded image without instruction
+        // Display uploaded image without editing instruction
         console.log("[v0] Displaying uploaded image")
         
         setMessages((prev) =>
@@ -273,7 +266,7 @@ export function VizzyChat() {
             m.id === assistantMessage.id
               ? {
                   ...m,
-                  content: `I can see your uploaded image. What would you like me to do? I can describe it, suggest improvements, or generate new images based on it.`,
+                  content: `I can see your uploaded image. What would you like me to edit? Describe the changes (like "remove the cat") and I'll apply them using AI inpainting.`,
                   uploadedImages: [
                     {
                       id: generateId(),

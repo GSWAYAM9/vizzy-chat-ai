@@ -8,7 +8,11 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '*.bria.ai',
+        hostname: '*.runware.ai',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.im.runware.ai',
       },
       {
         protocol: 'https',
