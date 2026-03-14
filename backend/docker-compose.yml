@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: deckoviz_postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-deckoviz}
+      POSTGRES_USER: ${DB_USER:-deckoviz_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-deckoviz_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: deckoviz_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    container_name: deckoviz_web
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn --bind 0.0.0.0:8000 --workers 4 --timeout 60 deckoviz_backend.wsgi:application"
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    ports:
+      - "8000:8000"
+    environment:
+      DEBUG: ${DEBUG:-False}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: ${DB_NAME:-deckoviz}
+      DB_USER: ${DB_USER:-deckoviz_user}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery:
+    build: .
+    container_name: deckoviz_celery
+    command: celery -A deckoviz_backend worker -l info
+    volumes:
+      - .:/app
+    environment:
+      DEBUG: ${DEBUG:-False}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: ${DB_NAME:-deckoviz}
+      DB_USER: ${DB_USER:-deckoviz_user}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+      - web
+
+  nginx:
+    image: nginx:alpine
+    container_name: deckoviz_nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/app/staticfiles:ro
+      - media_volume:/app/media:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
