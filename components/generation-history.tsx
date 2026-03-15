@@ -50,9 +50,14 @@ export function GenerationHistory() {
         })
         
         if (!res.ok) {
+          const errorText = await res.text()
           console.error('[v0] API error:', res.status, res.statusText)
+          console.error('[v0] Error response:', errorText)
           if (res.status === 401) {
             throw new Error('Session expired. Generate a new image to refresh.')
+          }
+          if (res.status === 500) {
+            throw new Error('Backend server error. Please check backend logs.')
           }
           throw new Error(`API error: ${res.status}`)
         }

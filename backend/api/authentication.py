@@ -21,6 +21,7 @@ class BearerTokenAuthentication(BaseAuthentication):
         token = auth_header[7:]  # Remove 'Bearer ' prefix
         
         try:
+            # First try to decode as JWT
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
             user_id = payload.get('user_id')
             
@@ -32,9 +33,31 @@ class BearerTokenAuthentication(BaseAuthentication):
         except jwt.ExpiredSignatureError:
             raise AuthenticationFailed('Token has expired')
         except jwt.InvalidTokenError:
-            raise AuthenticationFailed('Invalid token')
+            # If JWT decoding fails, treat as guest token and create/retrieve guest user
+            return self._authenticate_guest(token)
         except User.DoesNotExist:
             raise AuthenticationFailed('User not found')
+    
+    def _authenticate_guest(self, token):
+        """Authenticate guest user with simple token"""
+        try:
+            # Create or get guest user based on token
+            guest_username = f"guest_{token[:20]}"
+            user, created = User.objects.get_or_create(
+                username=guest_username,
+                defaults={
+                    'email': f"{guest_username}@deckoviz.guest",
+                    'is_active': True
+                }
+            )
+            
+            if created:
+                print(f"[v0] Created guest user: {guest_username}")
+            
+            return (user, token)
+        except Exception as e:
+            print(f"[v0] Error authenticating guest: {e}")
+            raise AuthenticationFailed('Authentication failed')
 
 
 class GoogleOAuthHandler:
