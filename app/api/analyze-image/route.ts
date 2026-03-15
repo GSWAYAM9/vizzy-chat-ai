@@ -2,43 +2,38 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, imageUrl } = await request.json()
+    const { prompt } = await request.json()
 
     if (!prompt) {
-      console.error("[v0] Analyze-image: No prompt provided")
       return NextResponse.json(
         { error: "Prompt is required" },
         { status: 400 }
       )
     }
 
-    console.log("[v0] Analyzing image with prompt:", prompt.slice(0, 100))
-
     // Check if API key exists
     if (!process.env.GROQ_API_KEY) {
-      console.warn("[v0] GROQ_API_KEY not found - returning fallback")
+      // Gracefully return without analysis if no API key
       return NextResponse.json({
         analysis: "Image generated successfully. Feel free to refine it with your feedback!"
       })
     }
 
-    console.log("[v0] Importing Groq SDK...")
-    const { default: Groq } = await import("groq-sdk")
-    console.log("[v0] Groq SDK imported successfully")
-    
-    const groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
-    })
-    console.log("[v0] Groq client instantiated")
+    try {
+      // Dynamically import Groq only when needed
+      const Groq = (await import("groq-sdk")).default
+      
+      const groq = new Groq({
+        apiKey: process.env.GROQ_API_KEY,
+      })
 
-    console.log("[v0] Building message for Groq API...")
-    const messagePayload = {
-      model: "mixtral-8x7b-32768",
-      max_tokens: 500,
-      messages: [
-        {
-          role: "user",
-          content: `You are an expert art critic and image analyst. Analyze the image based on this generation prompt and provide insightful commentary.
+      const message = await groq.chat.completions.create({
+        model: "mixtral-8x7b-32768",
+        max_tokens: 500,
+        messages: [
+          {
+            role: "user",
+            content: `You are an expert art critic and image analyst. Analyze the image based on this generation prompt and provide insightful commentary.
 
 Generation prompt: "${prompt}"
 
@@ -51,45 +46,29 @@ Provide a detailed analysis including:
 6. Any interesting artistic choices or details
 
 Format your response as natural, flowing commentary with bullet points for specific strengths. Be specific and insightful, not generic.`,
-        },
-      ],
-    }
-    console.log("[v0] Message payload prepared, calling Groq...")
+          },
+        ],
+      })
 
-    const message = await groq.chat.completions.create(messagePayload)
-    console.log("[v0] ✅ Groq API response received")
-    console.log("[v0] Response choices:", message.choices?.length)
-
-    if (!message.choices[0]?.message?.content) {
-      console.error("[v0] Groq returned no content")
-      throw new Error("No response from Groq")
-    }
-
-    const analysis = message.choices[0].message.content.trim()
-    console.log("[v0] Analysis generated successfully, length:", analysis.length)
-
-    return NextResponse.json({
-      analysis,
-    })
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const errorStack = error instanceof Error ? error.stack : ""
-    console.error("[v0] ❌ ERROR analyzing image:")
-    console.error("[v0] Message:", errorMessage)
-    console.error("[v0] Stack:", errorStack)
-    console.error("[v0] Full error object:", JSON.stringify(error))
-    
-    // Return a fallback response with a hint about the error
-    const fallbackMessage = errorMessage.includes("API key") || errorMessage.includes("authentication")
-      ? "Image generated successfully. (Note: Image analysis is not configured)"
-      : "Image generated successfully. Feel free to share your thoughts about what you see!"
-    
-    return NextResponse.json({
-      analysis: fallbackMessage,
-      _debug: {
-        error: errorMessage,
-        hasApiKey: !!process.env.GROQ_API_KEY
+      if (!message.choices[0]?.message?.content) {
+        throw new Error("No response from Groq")
       }
+
+      const analysis = message.choices[0].message.content.trim()
+
+      return NextResponse.json({
+        analysis,
+      })
+    } catch {
+      // If Groq analysis fails, return fallback
+      return NextResponse.json({
+        analysis: "Image generated successfully. Feel free to share your thoughts!"
+      })
+    }
+  } catch {
+    // Catch any other errors and return fallback
+    return NextResponse.json({
+      analysis: "Image generated successfully. Feel free to share your thoughts!"
     })
   }
 }

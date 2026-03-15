@@ -417,7 +417,6 @@ export function VizzyChat() {
         // Analyze the generated image
         if (data.images.length > 0 && refinedPrompt) {
           try {
-            console.log("[v0] Starting image analysis with prompt:", refinedPrompt.slice(0, 80))
             const analysisResponse = await fetch("/api/analyze-image", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -427,15 +426,8 @@ export function VizzyChat() {
               }),
             })
 
-            console.log("[v0] Analysis response status:", analysisResponse.status)
-            
             if (analysisResponse.ok) {
               const analysisData = await analysisResponse.json()
-              console.log("[v0] Analysis data received:", {
-                hasAnalysis: !!analysisData.analysis,
-                analysisLength: analysisData.analysis?.length,
-                debugInfo: analysisData._debug
-              })
               
               // Add analysis as a follow-up message
               setMessages((prev) => [
@@ -448,14 +440,9 @@ export function VizzyChat() {
                   isLoading: false,
                 },
               ])
-            } else {
-              console.error("[v0] Image analysis failed with status:", analysisResponse.status)
-              const errorText = await analysisResponse.text()
-              console.error("[v0] Error response:", errorText)
             }
           } catch (analysisError) {
-            console.error("[v0] Error during image analysis:", analysisError)
-            // Continue without analysis if it fails
+            // Silently fail - image generation succeeded even if analysis fails
           }
         }
       } else {
