@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import Link from "next/link"
 import { ChatMessage } from "@/components/chat-message"
 import { ChatInput } from "@/components/chat-input"
 import { ImageLightbox } from "@/components/image-lightbox"
@@ -11,7 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Sparkles, Plus, Sun, Moon, Trash2 } from "lucide-react"
+import { Sparkles, Plus, Sun, Moon, Trash2, Clock } from "lucide-react"
 import { useTheme } from "next-themes"
 import type { ChatMessage as ChatMessageType } from "@/lib/types"
 
@@ -455,6 +456,21 @@ export function VizzyChat() {
               </Tooltip>
             </>
           )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/history">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-foreground rounded-xl"
+                  aria-label="View generation history"
+                >
+                  <Clock className="size-4" />
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Generation history</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
