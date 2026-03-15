@@ -429,6 +429,43 @@ export function VizzyChat() {
               : m
           )
         )
+
+        // Analyze the generated image
+        if (data.images.length > 0 && refinedPrompt) {
+          try {
+            console.log("[v0] Starting image analysis...")
+            const analysisResponse = await fetch("/api/analyze-image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt: refinedPrompt,
+                imageUrl: data.images[0].url,
+              }),
+            })
+
+            if (analysisResponse.ok) {
+              const analysisData = await analysisResponse.json()
+              console.log("[v0] Image analysis received")
+              
+              // Add analysis as a follow-up message
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `analysis_${Date.now()}`,
+                  role: "assistant",
+                  content: analysisData.analysis,
+                  images: [],
+                  isLoading: false,
+                },
+              ])
+            } else {
+              console.error("[v0] Image analysis failed:", analysisResponse.status)
+            }
+          } catch (analysisError) {
+            console.error("[v0] Error during image analysis:", analysisError)
+            // Continue without analysis if it fails
+          }
+        }
       } else {
         // LLM chat flow
         console.log("[v0] Using LLM chat flow")
