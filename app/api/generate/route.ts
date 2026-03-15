@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
+import { Anthropic } from "@anthropic-ai/sdk"
 
 // Runware API endpoint for image generation
 const RUNWARE_API_ENDPOINT = "https://api.runware.ai/v1"
 const MAX_POLL_ATTEMPTS = 120
 const POLL_INTERVAL_MS = 1000
+
+// Initialize Anthropic client
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const {
+    let {
       prompt,
       negative_prompt,
       num_results = 1,
@@ -31,6 +37,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    console.log("[v0] Original prompt:", prompt)
+
+    // Refine the prompt using Claude AI
+    const refinedPrompt = await refinePromptWithClaude(prompt)
+    console.log("[v0] Refined prompt:", refinedPrompt)
 
     // Convert aspect ratio to width/height
     const aspectRatioMap: Record<string, [number, number]> = {
@@ -49,7 +61,7 @@ export async function POST(request: NextRequest) {
     const count = Math.min(Math.max(num_results, 1), 4)
 
     console.log("[v0] Runware generate called")
-    console.log("[v0] Payload: prompt length=", prompt.trim().length, "dimensions=", `${width}x${height}`, "count=", count)
+    console.log("[v0] Payload: prompt length=", refinedPrompt.trim().length, "dimensions=", `${width}x${height}`, "count=", count)
 
     // Fire multiple requests in parallel for multiple results
     const requests = Array.from({ length: count }, () => {
@@ -59,7 +71,7 @@ export async function POST(request: NextRequest) {
         taskUUID,
         outputType: "URL",
         outputFormat: "jpg",
-        positivePrompt: prompt.trim(),
+        positivePrompt: refinedPrompt.trim(),
         width,
         height,
         model: "runware:101@1",
@@ -98,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       images,
-      prompt: prompt.trim(),
+      prompt: refinedPrompt.trim(),
     })
   } catch (error) {
     console.error("[Generate API Error]", error)
@@ -106,6 +118,47 @@ export async function POST(request: NextRequest) {
       { error: "An unexpected error occurred. Please try again." },
       { status: 500 }
     )
+  }
+}
+
+async function refinePromptWithClaude(userPrompt: string): Promise<string> {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.log("[v0] No Claude API key, using original prompt")
+      return userPrompt
+    }
+
+    const message = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-20241022",
+      max_tokens: 200,
+      messages: [
+        {
+          role: "user",
+          content: `You are an expert AI image prompt engineer for Runware image generation. Your task is to transform user requests into detailed, vivid image generation prompts that will produce beautiful, high-quality results.
+
+Transform this user request into a detailed image generation prompt. Focus on:
+- Visual style and artistic direction (e.g., "oil painting", "digital art", "photography", "3D rendered")
+- Composition and framing
+- Color palette and mood
+- Lighting and atmosphere
+- Technical details (quality, resolution hints if relevant)
+- Any specific art movements or references
+
+Keep it concise but descriptive (under 150 words). Return ONLY the refined prompt, nothing else.
+
+User request: "${userPrompt}"`,
+        },
+      ],
+    })
+
+    if (message.content[0].type === "text") {
+      return message.content[0].text.trim()
+    }
+
+    return userPrompt
+  } catch (error) {
+    console.error("[v0] Error refining prompt with Claude:", error)
+    return userPrompt
   }
 }
 
@@ -186,3 +239,4 @@ async function generateSingleImage(
   console.error("[v0] No imageURL in sync response")
   throw new Error("Image generation failed: no image URL in response")
 }
+
