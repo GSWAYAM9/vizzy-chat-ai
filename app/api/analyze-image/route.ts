@@ -59,13 +59,17 @@ Format your response as natural, flowing commentary with bullet points for speci
       return NextResponse.json({
         analysis,
       })
-    } catch {
+    } catch (groqError) {
+      const errorMsg = groqError instanceof Error ? groqError.message : String(groqError)
+      console.error("[v0] Groq analysis failed:", errorMsg)
       // If Groq analysis fails, return fallback
       return NextResponse.json({
         analysis: "Image generated successfully. Feel free to share your thoughts!"
       })
     }
-  } catch {
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    console.error("[v0] Analyze-image error:", errorMsg)
     // Catch any other errors and return fallback
     return NextResponse.json({
       analysis: "Image generated successfully. Feel free to share your thoughts!"
