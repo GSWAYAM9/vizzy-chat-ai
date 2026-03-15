@@ -1,18 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import Groq from "groq-sdk"
-
-// Initialize Groq client at module level
-let groq: Groq | null = null
-if (process.env.GROQ_API_KEY) {
-  try {
-    groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
-    })
-    console.log("[v0] Groq client initialized for analyze-image")
-  } catch (e) {
-    console.error("[v0] Failed to initialize Groq client for analyze-image:", e)
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,12 +14,21 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Analyzing image with prompt:", prompt.slice(0, 100))
 
-    if (!groq) {
-      console.warn("[v0] Groq not available - returning fallback analysis")
+    // Check if API key exists
+    if (!process.env.GROQ_API_KEY) {
+      console.warn("[v0] GROQ_API_KEY not found - returning fallback")
       return NextResponse.json({
         analysis: "Image generated successfully. Feel free to refine it with your feedback!"
       })
     }
+
+    console.log("[v0] Importing and initializing Groq...")
+    
+    // Dynamic import to avoid module-level errors
+    const { default: Groq } = await import("groq-sdk")
+    const groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY,
+    })
 
     console.log("[v0] Calling Groq API for image analysis")
 
@@ -74,8 +69,9 @@ Format your response as natural, flowing commentary with bullet points for speci
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
     console.error("[v0] Error analyzing image:", errorMessage)
+    console.error("[v0] Full error object:", error)
     
-    // Return a meaningful fallback
+    // Return a meaningful fallback instead of failing
     return NextResponse.json({
       analysis: "Image generated successfully. Feel free to share your thoughts about what you see!"
     })
