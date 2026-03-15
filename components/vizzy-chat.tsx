@@ -21,7 +21,7 @@ function generateId() {
 }
 
 function isImageGenerationIntent(input: string): boolean {
-  const lowerInput = input.toLowerCase()
+  const lowerInput = input.toLowerCase().trim()
   
   // Strong image generation keywords - these clearly indicate image creation
   const strongKeywords = [
@@ -32,8 +32,27 @@ function isImageGenerationIntent(input: string): boolean {
     "please create", "please draw",
   ]
   
-  // Weak keywords that need additional context - words that could be in chat
-  const weakKeywords = ["style", "aesthetic", "vibe", "art", "character", "scene", "landscape"]
+  // Phrases that indicate generating variations of previous images
+  const variationPhrases = [
+    /^(ok|okay|alright|sure)\s+(let|lets|let's).*generate/i,
+    /^(let|lets|let's).*generate/i,
+    /generate\s+that/i,
+    /make\s+that/i,
+    /create\s+that/i,
+  ]
+  
+  // Short positive responses that should trigger image generation (for iterating on previous images)
+  const positiveAffirmations = ["yup", "yeah", "yes", "ok", "okay", "good", "great", "perfect", "excellent", "love it", "nice", "cool", "rad", "awesome", "amazing"]
+  
+  // Check if input is a short positive affirmation
+  if (positiveAffirmations.includes(lowerInput)) {
+    return true
+  }
+  
+  // Check for variation phrases like "ok lets generate that"
+  if (variationPhrases.some(pattern => pattern.test(lowerInput))) {
+    return true
+  }
   
   // Check if it starts with clear generation intent
   const hasStrongIntent = strongKeywords.some((keyword) =>
@@ -45,26 +64,13 @@ function isImageGenerationIntent(input: string): boolean {
   }
   
   // For weak keywords, require a strong generation verb nearby
+  const weakKeywords = ["style", "aesthetic", "vibe", "art", "character", "scene", "landscape"]
+  
   const hasWeakKeyword = weakKeywords.some((keyword) =>
     lowerInput.includes(keyword)
   )
   
   if (hasWeakKeyword) {
-    // Only treat as image generation if paired with creation verbs
-    const generationVerbs = ["in", "for", "of", "with", "a ", "the "]
-    const beforeKeyword = generationVerbs.some((verb) => {
-      const keywordIndex = lowerInput.indexOf("style") + 
-                          lowerInput.indexOf("aesthetic") +
-                          lowerInput.indexOf("vibe") +
-                          lowerInput.indexOf("art") +
-                          lowerInput.indexOf("character") +
-                          lowerInput.indexOf("scene") +
-                          lowerInput.indexOf("landscape")
-      return keywordIndex > 0
-    })
-    
-    // More conservative: only consider weak keywords as generation intent
-    // if they're in the context of "create X in style Y" or similar
     const generationPatterns = [
       /create.*style/i,
       /generate.*style/i,
@@ -84,14 +90,52 @@ function isImageGenerationIntent(input: string): boolean {
 }
 
 function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): string {
-  const previousPrompts = messages
-    .filter((m) => m.role === "user")
-    .map((m) => m.content)
-    .slice(-3)
-
   const previousImages = messages
     .filter((m) => m.role === "assistant" && m.images && m.images.length > 0)
     .slice(-1)
+
+  // Also get the last assistant message (even without images) for suggested prompts
+  const lastAssistantMessages = messages
+    .filter((m) => m.role === "assistant")
+    .slice(-1)
+
+
+
+  // For short positive responses like "yup", "good", "yes" - use the exact previous prompt
+  // Also match phrases like "ok lets generate that", "lets make that", etc.
+  const positiveResponsePatterns = [
+    /^(yup|yeah|yes|ok|okay|good|great|perfect|excellent|love it|nice|cool|rad|awesome)$/i,
+    /^(ok|okay|alright|sure)\s+(let|lets|let's).*generate/i,
+    /^(let|lets|let's).*generate/i,
+    /generate\s+that/i,
+    /make\s+that/i,
+    /create\s+that/i,
+  ]
+  
+  const isPositiveResponse = positiveResponsePatterns.some(pattern => pattern.test(newInput.trim()))
+  
+  if (isPositiveResponse) {
+    // For positive responses, check the order of messages:
+    // - If the IMMEDIATE previous message is an image, and user says "yup/ok", regenerate from that
+    // - Otherwise, use the last text message (latest suggestion)
+    
+    const lastMessage = messages.slice(-1)[0]
+    
+    // If the immediate previous message has an image AND it's an assistant message
+    if (lastMessage?.role === "assistant" && lastMessage?.images && lastMessage.images.length > 0) {
+      // User is asking to regenerate the immediate previous image
+      const lastImagePrompt = lastMessage.images[0]?.prompt
+      if (lastImagePrompt) {
+        return lastImagePrompt
+      }
+    }
+    
+    // Otherwise, use the latest assistant text message (a suggestion)
+    if (lastAssistantMessages.length > 0) {
+      const lastAssistantContent = lastAssistantMessages[0].content
+      return lastAssistantContent
+    }
+  }
 
   const refinementWords = [
     "make it", "change", "more", "less", "add", "remove", "try",
@@ -105,10 +149,12 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     newInput.toLowerCase().includes(word)
   )
 
-  if (isRefinement && previousPrompts.length > 0 && previousImages.length > 0) {
-    const lastImagePrompt =
-      previousImages[0].images?.[0]?.prompt || previousPrompts[previousPrompts.length - 1]
-    return `${lastImagePrompt}. Modification: ${newInput}`
+  // For explicit modifications, append the user's request
+  if (isRefinement && previousImages.length > 0) {
+    const lastImagePrompt = previousImages[0].images?.[0]?.prompt
+    if (lastImagePrompt) {
+      return `${lastImagePrompt}. User modification: ${newInput}`
+    }
   }
 
   return newInput
@@ -290,6 +336,7 @@ export function VizzyChat() {
           [...messages, userMessage],
           trimmedInput
         )
+        
         const numResults = parseNumImages(trimmedInput)
 
         const response = await fetch("/api/generate", {
@@ -366,6 +413,38 @@ export function VizzyChat() {
               : m
           )
         )
+
+        // Analyze the generated image
+        if (data.images.length > 0 && refinedPrompt) {
+          try {
+            const analysisResponse = await fetch("/api/analyze-image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt: refinedPrompt,
+                imageUrl: data.images[0].url,
+              }),
+            })
+
+            if (analysisResponse.ok) {
+              const analysisData = await analysisResponse.json()
+              
+              // Add analysis as a follow-up message
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `analysis_${Date.now()}`,
+                  role: "assistant",
+                  content: analysisData.analysis,
+                  images: [],
+                  isLoading: false,
+                },
+              ])
+            }
+          } catch (analysisError) {
+            // Silently fail - image generation succeeded even if analysis fails
+          }
+        }
       } else {
         // LLM chat flow
         console.log("[v0] Using LLM chat flow")

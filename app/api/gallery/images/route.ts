@@ -46,29 +46,44 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    console.log('[v0] Saving image to backend:', body.prompt?.slice(0, 50) + '...')
 
-    const response = await fetch(`${BACKEND_URL}/api/gallery/images/`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    })
-
-    console.log('[v0] Backend save response status:', response.status)
-
-    if (!response.ok) {
-      const error = await response.text()
-      console.error('[v0] Backend error:', error)
-      return NextResponse.json({ error: error || 'Failed to save image' }, { status: response.status })
+    // If no backend URL configured, just return success without saving
+    if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
+      console.log('[v0] No backend configured, skipping gallery save')
+      return NextResponse.json({ message: 'Image generated successfully (gallery unavailable)' }, { status: 201 })
     }
 
-    const data = await response.json()
-    return NextResponse.json(data, { status: 201 })
+    console.log('[v0] Saving image to backend:', body.prompt?.slice(0, 50) + '...')
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/gallery/images/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      })
+
+      console.log('[v0] Backend save response status:', response.status)
+
+      if (!response.ok) {
+        const error = await response.text()
+        console.warn('[v0] Backend warning:', error)
+        // Don't fail, just warn
+        return NextResponse.json({ message: 'Image generated (gallery save failed)', success: true }, { status: 201 })
+      }
+
+      const data = await response.json()
+      return NextResponse.json(data, { status: 201 })
+    } catch (backendError) {
+      console.warn('[v0] Backend unavailable, image generation succeeded anyway')
+      // If backend is unreachable, still return success for image generation
+      return NextResponse.json({ message: 'Image generated successfully (gallery unavailable)' }, { status: 201 })
+    }
   } catch (error) {
-    console.error('[v0] Error saving gallery image:', error)
-    return NextResponse.json({ error: 'Internal server error: ' + String(error) }, { status: 500 })
+    console.error('[v0] Error in gallery POST:', error)
+    // Even if there's an error, don't block image generation
+    return NextResponse.json({ message: 'Image generated (gallery unavailable)' }, { status: 201 })
   }
 }
