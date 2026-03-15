@@ -34,10 +34,12 @@ export function GenerationHistory() {
     '/api/gallery/images/',
     async (url) => {
       try {
-        const token = localStorage.getItem('token')
+        let token = localStorage.getItem('token')
+        console.log('[v0] Token from localStorage:', token ? 'exists' : 'missing')
+        
         if (!token) {
-          console.error('[v0] No token found in localStorage')
-          throw new Error('No authentication token')
+          console.log('[v0] No token found, cannot load history')
+          throw new Error('No generation history yet. Start generating images to see them here!')
         }
         
         const res = await fetch(url, { 
@@ -49,16 +51,23 @@ export function GenerationHistory() {
         
         if (!res.ok) {
           console.error('[v0] API error:', res.status, res.statusText)
+          if (res.status === 401) {
+            throw new Error('Session expired. Generate a new image to refresh.')
+          }
           throw new Error(`API error: ${res.status}`)
         }
         
         const data = await res.json()
         console.log('[v0] Generated images loaded:', data)
-        return data
+        return Array.isArray(data) ? data : data.results || []
       } catch (err) {
         console.error('[v0] Error fetching images:', err)
         throw err
       }
+    },
+    { 
+      revalidateOnFocus: true,
+      dedupingInterval: 1000
     }
   )
 
@@ -136,9 +145,15 @@ export function GenerationHistory() {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
-          <p className="text-red-500 mb-2">Failed to load history</p>
-          <p className="text-xs text-muted-foreground mb-4">{error?.message || 'Unknown error'}</p>
-          <Button onClick={() => mutate()}>Retry</Button>
+          <div className="text-center space-y-4">
+            <p className="text-lg font-semibold text-muted-foreground">No Generation History</p>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              {error?.message || 'Generate some AI images to see your history here!'}
+            </p>
+            <Button onClick={() => mutate()} variant="outline">
+              Check Again
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )

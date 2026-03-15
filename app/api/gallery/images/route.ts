@@ -29,3 +29,35 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+
+export async function POST(request: NextRequest) {
+  try {
+    const token = request.headers.get('authorization')?.replace('Bearer ', '')
+    
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
+
+    const response = await fetch(`${BACKEND_URL}/api/gallery/images/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      return NextResponse.json({ error: error.detail || 'Failed to save image' }, { status: response.status })
+    }
+
+    const data = await response.json()
+    return NextResponse.json(data, { status: 201 })
+  } catch (error) {
+    console.error('[v0] Error saving gallery image:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
