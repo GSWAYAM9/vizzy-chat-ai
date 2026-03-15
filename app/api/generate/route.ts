@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { v4 as uuidv4 } from "uuid"
-import { Anthropic } from "@anthropic-ai/sdk"
+import Groq from "groq-sdk"
 
 // Runware API endpoint for image generation
 const RUNWARE_API_ENDPOINT = "https://api.runware.ai/v1"
 const MAX_POLL_ATTEMPTS = 120
 const POLL_INTERVAL_MS = 1000
 
-// Initialize Anthropic client
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+// Initialize Groq client
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
 })
 
 export async function POST(request: NextRequest) {
@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Original prompt:", prompt)
 
-    // Refine the prompt using Claude AI
-    const refinedPrompt = await refinePromptWithClaude(prompt)
+    // Refine the prompt using Groq AI
+    const refinedPrompt = await refinePromptWithGroq(prompt)
     console.log("[v0] Refined prompt:", refinedPrompt)
 
     // Convert aspect ratio to width/height
@@ -121,15 +121,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function refinePromptWithClaude(userPrompt: string): Promise<string> {
+async function refinePromptWithGroq(userPrompt: string): Promise<string> {
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.log("[v0] No Claude API key, using original prompt")
+    if (!process.env.GROQ_API_KEY) {
+      console.log("[v0] No Groq API key, using original prompt")
       return userPrompt
     }
 
-    const message = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+    const message = await groq.chat.completions.create({
+      model: "mixtral-8x7b-32768",
       max_tokens: 200,
       messages: [
         {
@@ -151,13 +151,13 @@ User request: "${userPrompt}"`,
       ],
     })
 
-    if (message.content[0].type === "text") {
-      return message.content[0].text.trim()
+    if (message.choices[0].message.content) {
+      return message.choices[0].message.content.trim()
     }
 
     return userPrompt
   } catch (error) {
-    console.error("[v0] Error refining prompt with Claude:", error)
+    console.error("[v0] Error refining prompt with Groq:", error)
     return userPrompt
   }
 }
