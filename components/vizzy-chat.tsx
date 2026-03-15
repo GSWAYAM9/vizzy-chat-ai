@@ -115,22 +115,22 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
   const isPositiveResponse = positiveResponsePatterns.some(pattern => pattern.test(newInput.trim()))
   
   if (isPositiveResponse) {
-    // If we have a previous generated image, check if it belongs to current context
-    if (previousImages.length > 0 && lastAssistantMessages.length > 0) {
-      const lastImagePrompt = previousImages[0].images?.[0]?.prompt
-      const lastAssistantContent = lastAssistantMessages[0].content
-      
-      // Check if the previous image's prompt is referenced in the current assistant message
-      // This means the image was generated for the CURRENT suggestion, not an old one
-      const isImageFromCurrentContext = lastImagePrompt && 
-        lastAssistantContent.toLowerCase().includes(lastImagePrompt.slice(0, 30).toLowerCase())
-      
-      if (isImageFromCurrentContext && lastImagePrompt) {
+    // For positive responses, check the order of messages:
+    // - If the IMMEDIATE previous message is an image, and user says "yup/ok", regenerate from that
+    // - Otherwise, use the last text message (latest suggestion)
+    
+    const lastMessage = messages.slice(-1)[0]
+    
+    // If the immediate previous message has an image AND it's an assistant message
+    if (lastMessage?.role === "assistant" && lastMessage?.images && lastMessage.images.length > 0) {
+      // User is asking to regenerate the immediate previous image
+      const lastImagePrompt = lastMessage.images[0]?.prompt
+      if (lastImagePrompt) {
         return lastImagePrompt
       }
     }
     
-    // If no image from current context, or no previous image, use the current assistant suggestion
+    // Otherwise, use the latest assistant text message (a suggestion)
     if (lastAssistantMessages.length > 0) {
       const lastAssistantContent = lastAssistantMessages[0].content
       return lastAssistantContent
