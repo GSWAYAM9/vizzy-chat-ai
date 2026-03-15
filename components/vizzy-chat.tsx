@@ -92,11 +92,6 @@ function isImageGenerationIntent(input: string): boolean {
 }
 
 function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): string {
-  const previousPrompts = messages
-    .filter((m) => m.role === "user")
-    .map((m) => m.content)
-    .slice(-3)
-
   const previousImages = messages
     .filter((m) => m.role === "assistant" && m.images && m.images.length > 0)
     .slice(-1)
@@ -105,7 +100,19 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
   console.log("[v0] buildRefinedPrompt - new input:", newInput)
   
   if (previousImages.length > 0) {
-    console.log("[v0] buildRefinedPrompt - last image prompt:", previousImages[0].images?.[0]?.prompt?.slice(0, 50))
+    console.log("[v0] buildRefinedPrompt - last image prompt:", previousImages[0].images?.[0]?.prompt?.slice(0, 80))
+  }
+
+  // For short positive responses like "yup", "good", "yes" - use the exact previous prompt
+  const shortPositiveResponses = /^(yup|yeah|yes|ok|okay|good|great|excellent|perfect|love it|nice|cool|rad|awesome)$/i
+  if (shortPositiveResponses.test(newInput.trim())) {
+    if (previousImages.length > 0) {
+      const lastImagePrompt = previousImages[0].images?.[0]?.prompt
+      if (lastImagePrompt) {
+        console.log("[v0] buildRefinedPrompt - returning exact previous prompt for variation")
+        return lastImagePrompt  // Return the EXACT previous prompt, no modifications
+      }
+    }
   }
 
   const refinementWords = [
@@ -114,39 +121,25 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     "like that but", "adjust", "modify", "keep", "turn it", "transform",
     "switch", "convert", "instead", "also", "but with", "now make",
     "could you", "can you", "please make", "update", "tweak",
-    "variation", "version", "another", "different", "similar",
-    "similar to", "based on", "inspired by", "like the last",
-    "next in", "yup", "yeah", "yes", "ok", "okay", "good",
-    "excellent", "perfect", "love it", "great",
   ]
 
   const isRefinement = refinementWords.some((word) =>
     newInput.toLowerCase().includes(word)
   )
 
-  console.log("[v0] buildRefinedPrompt - is refinement:", isRefinement)
+  console.log("[v0] buildRefinedPrompt - is modification request:", isRefinement)
 
-  // If we have a previous image, use it as context for variations
-  if (previousImages.length > 0) {
+  // For explicit modifications, append the user's request
+  if (isRefinement && previousImages.length > 0) {
     const lastImagePrompt = previousImages[0].images?.[0]?.prompt
-    
-    if (isRefinement && lastImagePrompt) {
-      // User explicitly asked for a modification
-      const result = `${lastImagePrompt}. Modification: ${newInput}`
+    if (lastImagePrompt) {
+      const result = `${lastImagePrompt}. User modification: ${newInput}`
       console.log("[v0] buildRefinedPrompt - returning modification prompt")
-      return result
-    }
-    
-    // For short positive responses like "yup", "good", "yes" - generate variations
-    const shortPositiveResponses = /^(yup|yeah|yes|ok|okay|good|great|excellent|perfect|love it)$/i
-    if (shortPositiveResponses.test(newInput.trim()) && lastImagePrompt) {
-      const result = `${lastImagePrompt}. Create a similar variation with subtle differences.`
-      console.log("[v0] buildRefinedPrompt - returning variation prompt")
       return result
     }
   }
 
-  console.log("[v0] buildRefinedPrompt - returning original input")
+  console.log("[v0] buildRefinedPrompt - no previous image found, returning original input")
   return newInput
 }
 

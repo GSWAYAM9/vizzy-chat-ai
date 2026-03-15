@@ -129,6 +129,76 @@ async function refinePromptWithGroq(userPrompt: string): Promise<string> {
       return userPrompt
     }
 
+    // If prompt is already long and detailed, don't refine it (it's probably a previous prompt)
+    if (userPrompt.length > 200) {
+      console.log("[v0] Prompt is already detailed, skipping Groq refinement")
+      return userPrompt
+    }
+
+    // Check if this is an iterative/modification prompt
+    const isModification = userPrompt.includes("User modification:")
+    
+    if (isModification) {
+      // User wants to modify the previous prompt
+      const systemPrompt = `You are an expert AI image prompt engineer. The user wants to modify their previous image.
+
+Apply their requested changes to the base prompt while keeping the core concept intact. Keep the modified prompt concise but descriptive (under 150 words). Return ONLY the refined prompt, nothing else.`
+
+      const message = await groq.chat.completions.create({
+        model: "mixtral-8x7b-32768",
+        max_tokens: 200,
+        messages: [
+          {
+            role: "user",
+            content: `${systemPrompt}
+
+User request: "${userPrompt}"`,
+          },
+        ],
+      })
+
+      if (message.choices[0]?.message?.content) {
+        return message.choices[0].message.content.trim()
+      }
+      return userPrompt
+    }
+
+    // For new prompts, enhance them
+    const systemPrompt = `You are an expert AI image prompt engineer for Runware image generation. Your task is to transform user requests into detailed, vivid image generation prompts.
+
+Transform this user request into a detailed image generation prompt. Focus on:
+- Visual style and artistic direction (e.g., "oil painting", "digital art", "photography")
+- Composition and framing
+- Color palette and mood
+- Lighting and atmosphere
+- Technical details
+
+Keep it concise but descriptive (under 150 words). Return ONLY the refined prompt, nothing else.`
+
+    const message = await groq.chat.completions.create({
+      model: "mixtral-8x7b-32768",
+      max_tokens: 200,
+      messages: [
+        {
+          role: "user",
+          content: `${systemPrompt}
+
+User request: "${userPrompt}"`,
+        },
+      ],
+    })
+
+    if (message.choices[0]?.message?.content) {
+      return message.choices[0].message.content.trim()
+    }
+
+    return userPrompt
+  } catch (error) {
+    console.error("[v0] Error refining prompt with Groq:", error)
+    return userPrompt
+  }
+}
+
     // Check if this is an iterative prompt
     const isIterative = userPrompt.includes("Modification:") || userPrompt.includes("similar variation")
     
