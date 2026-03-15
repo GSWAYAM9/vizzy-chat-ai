@@ -1,22 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import Groq from "groq-sdk"
-
-// Initialize Groq client
-let groq: Groq | null = null
-
-function getGroqClient(): Groq | null {
-  if (!groq && process.env.GROQ_API_KEY) {
-    try {
-      groq = new Groq({
-        apiKey: process.env.GROQ_API_KEY,
-      })
-    } catch (e) {
-      console.error("[v0] Failed to initialize Groq:", e)
-      return null
-    }
-  }
-  return groq
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,17 +11,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const groqClient = getGroqClient()
-    if (!groqClient) {
-      return NextResponse.json(
-        { error: "Groq not configured" },
-        { status: 500 }
-      )
+    if (!process.env.GROQ_API_KEY) {
+      console.log("[v0] Groq not configured, skipping image analysis")
+      return NextResponse.json({
+        analysis: "Image generated successfully. Feel free to refine it with your feedback!"
+      })
     }
+
+    // Lazy import Groq only if API key exists
+    const Groq = (await import("groq-sdk")).default
+    const groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY,
+    })
 
     console.log("[v0] Analyzing image with prompt:", prompt.slice(0, 100))
 
-    const message = await groqClient.chat.completions.create({
+    const message = await groq.chat.completions.create({
       model: "mixtral-8x7b-32768",
       max_tokens: 500,
       messages: [
@@ -73,9 +60,9 @@ Format your response as natural, flowing commentary with bullet points for speci
     })
   } catch (error) {
     console.error("[v0] Error analyzing image:", error)
-    return NextResponse.json(
-      { error: "Failed to analyze image" },
-      { status: 500 }
-    )
+    // Don't fail the image generation if analysis fails
+    return NextResponse.json({
+      analysis: "Image generated successfully. Feel free to share your thoughts!"
+    })
   }
 }
