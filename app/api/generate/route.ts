@@ -199,53 +199,6 @@ User request: "${userPrompt}"`,
   }
 }
 
-    // Check if this is an iterative prompt
-    const isIterative = userPrompt.includes("Modification:") || userPrompt.includes("similar variation")
-    
-    let systemPrompt = `You are an expert AI image prompt engineer for Runware image generation. Your task is to transform user requests into detailed, vivid image generation prompts.
-
-Transform this user request into a detailed image generation prompt. Focus on:
-- Visual style and artistic direction (e.g., "oil painting", "digital art", "photography")
-- Composition and framing
-- Color palette and mood
-- Lighting and atmosphere
-- Technical details
-
-Keep it concise but descriptive (under 150 words). Return ONLY the refined prompt, nothing else.`
-
-    if (isIterative) {
-      systemPrompt = `You are an expert AI image prompt engineer. The user is iterating on a previous image.
-
-If they said "Modification:", apply their requested changes while keeping the core elements intact.
-If they said "similar variation", create a subtle variation that maintains the essence but adds fresh creative elements.
-
-Return ONLY the refined prompt (under 150 words).`
-    }
-
-    const message = await groq.chat.completions.create({
-      model: "mixtral-8x7b-32768",
-      max_tokens: 200,
-      messages: [
-        {
-          role: "user",
-          content: `${systemPrompt}
-
-User request: "${userPrompt}"`,
-        },
-      ],
-    })
-
-    if (message.choices[0]?.message?.content) {
-      return message.choices[0].message.content.trim()
-    }
-
-    return userPrompt
-  } catch (error) {
-    console.error("[v0] Error refining prompt with Groq:", error)
-    return userPrompt
-  }
-}
-
 interface GeneratePayload {
   taskType: string
   taskUUID: string
