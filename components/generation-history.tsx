@@ -32,7 +32,34 @@ export function GenerationHistory() {
 
   const { data: images, isLoading, error, mutate } = useSWR<GeneratedImage[]>(
     '/api/gallery/images/',
-    (url) => fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json())
+    async (url) => {
+      try {
+        const token = localStorage.getItem('token')
+        if (!token) {
+          console.error('[v0] No token found in localStorage')
+          throw new Error('No authentication token')
+        }
+        
+        const res = await fetch(url, { 
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } 
+        })
+        
+        if (!res.ok) {
+          console.error('[v0] API error:', res.status, res.statusText)
+          throw new Error(`API error: ${res.status}`)
+        }
+        
+        const data = await res.json()
+        console.log('[v0] Generated images loaded:', data)
+        return data
+      } catch (err) {
+        console.error('[v0] Error fetching images:', err)
+        throw err
+      }
+    }
   )
 
   const filteredAndSortedImages = useMemo(() => {
@@ -105,8 +132,28 @@ export function GenerationHistory() {
     toast.success('Download started')
   }
 
-  if (error) return <div className="text-red-500">Failed to load history</div>
-  if (isLoading) return <div className="text-muted-foreground">Loading generation history...</div>
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <p className="text-red-500 mb-2">Failed to load history</p>
+          <p className="text-xs text-muted-foreground mb-4">{error?.message || 'Unknown error'}</p>
+          <Button onClick={() => mutate()}>Retry</Button>
+        </CardContent>
+      </Card>
+    )
+  }
+  
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+          <p className="text-muted-foreground">Loading generation history...</p>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const aspectRatios = [...new Set(images?.map(img => img.aspect_ratio) || [])]
   const models = [...new Set(images?.map(img => img.model) || [])]
