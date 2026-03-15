@@ -21,7 +21,7 @@ function generateId() {
 }
 
 function isImageGenerationIntent(input: string): boolean {
-  const lowerInput = input.toLowerCase()
+  const lowerInput = input.toLowerCase().trim()
   
   // Strong image generation keywords - these clearly indicate image creation
   const strongKeywords = [
@@ -34,6 +34,14 @@ function isImageGenerationIntent(input: string): boolean {
   
   // Weak keywords that need additional context - words that could be in chat
   const weakKeywords = ["style", "aesthetic", "vibe", "art", "character", "scene", "landscape"]
+  
+  // Short positive responses that should trigger image generation (for iterating on previous images)
+  const positiveAffirmations = ["yup", "yeah", "yes", "ok", "okay", "good", "great", "perfect", "excellent", "love it", "nice", "cool", "rad", "awesome", "amazing"]
+  
+  // Check if input is a short positive affirmation
+  if (positiveAffirmations.includes(lowerInput)) {
+    return true
+  }
   
   // Check if it starts with clear generation intent
   const hasStrongIntent = strongKeywords.some((keyword) =>
