@@ -29,23 +29,24 @@ export async function POST(request: NextRequest) {
 
       const message = await groq.chat.completions.create({
         model: "llama-3.3-70b-versatile",
-        max_tokens: 500,
+        max_tokens: 600,
         messages: [
           {
             role: "user",
-            content: `You are an expert art critic and image analyst. Analyze the image based on this generation prompt and provide insightful commentary.
+            content: `You are an expert art critic and image analyst. Analyze the generated image based on this prompt and provide insightful commentary as a structured list of bullet points.
 
 Generation prompt: "${prompt}"
 
-Provide a detailed analysis including:
-1. Overall assessment of how well the image matches the prompt
-2. Artistic style and technical execution
-3. Composition and visual elements that work well
-4. Color palette and mood
-5. Notable strengths of the image (use bullet points)
-6. Any interesting artistic choices or details
+Provide your analysis ONLY as bullet points in this format:
+• Overall assessment of how well the image matches the prompt
+• Artistic style and technical execution details
+• Composition and visual elements that work well
+• Color palette and mood analysis
+• Notable strengths of the image
+• Interesting artistic choices or design decisions
+• Technical quality observations
 
-Format your response as natural, flowing commentary with bullet points for specific strengths. Be specific and insightful, not generic.`,
+Be specific and insightful, not generic. Focus on what makes this image successful. Return ONLY the bullet points, nothing else.`,
           },
         ],
       })
