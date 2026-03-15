@@ -128,13 +128,10 @@ async function refinePromptWithGroq(userPrompt: string): Promise<string> {
       return userPrompt
     }
 
-    const message = await groq.chat.completions.create({
-      model: "mixtral-8x7b-32768",
-      max_tokens: 200,
-      messages: [
-        {
-          role: "user",
-          content: `You are an expert AI image prompt engineer for Runware image generation. Your task is to transform user requests into detailed, vivid image generation prompts that will produce beautiful, high-quality results.
+    // Check if this is an iterative prompt (contains "Modification:" or "similar variation")
+    const isIterative = userPrompt.includes("Modification:") || userPrompt.includes("similar variation")
+    
+    let systemPrompt = `You are an expert AI image prompt engineer for Runware image generation. Your task is to transform user requests into detailed, vivid image generation prompts that will produce beautiful, high-quality results.
 
 Transform this user request into a detailed image generation prompt. Focus on:
 - Visual style and artistic direction (e.g., "oil painting", "digital art", "photography", "3D rendered")
@@ -144,7 +141,24 @@ Transform this user request into a detailed image generation prompt. Focus on:
 - Technical details (quality, resolution hints if relevant)
 - Any specific art movements or references
 
-Keep it concise but descriptive (under 150 words). Return ONLY the refined prompt, nothing else.
+Keep it concise but descriptive (under 150 words). Return ONLY the refined prompt, nothing else.`
+
+    if (isIterative) {
+      systemPrompt = `You are an expert AI image prompt engineer. The user is iterating on a previous image and wants a variation or modification.
+
+If they said "Modification:", apply their requested changes to the base prompt while keeping the core elements intact.
+If they said "similar variation", create a subtle variation that maintains the essence but adds fresh creative elements.
+
+Keep the base concept and style but incorporate the user's feedback. Return ONLY the refined prompt, nothing else (under 150 words).`
+    }
+
+    const message = await groq.chat.completions.create({
+      model: "mixtral-8x7b-32768",
+      max_tokens: 200,
+      messages: [
+        {
+          role: "user",
+          content: `${systemPrompt}
 
 User request: "${userPrompt}"`,
         },

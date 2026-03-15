@@ -99,16 +99,30 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     "like that but", "adjust", "modify", "keep", "turn it", "transform",
     "switch", "convert", "instead", "also", "but with", "now make",
     "could you", "can you", "please make", "update", "tweak",
+    "variation", "version", "another", "different", "similar",
+    "similar to", "based on", "inspired by", "like the last",
+    "next in", "yup", "yeah", "yes", "ok", "okay", "good",
+    "excellent", "perfect", "love it", "great",
   ]
 
   const isRefinement = refinementWords.some((word) =>
     newInput.toLowerCase().includes(word)
   )
 
-  if (isRefinement && previousPrompts.length > 0 && previousImages.length > 0) {
-    const lastImagePrompt =
-      previousImages[0].images?.[0]?.prompt || previousPrompts[previousPrompts.length - 1]
-    return `${lastImagePrompt}. Modification: ${newInput}`
+  // If we have a previous image, use it as context for variations
+  if (previousImages.length > 0) {
+    const lastImagePrompt = previousImages[0].images?.[0]?.prompt
+    
+    if (isRefinement && lastImagePrompt) {
+      // User explicitly asked for a modification
+      return `${lastImagePrompt}. Modification: ${newInput}`
+    }
+    
+    // For short positive responses like "yup", "good", "yes" - generate variations
+    const shortPositiveResponses = /^(yup|yeah|yes|ok|okay|good|great|excellent|perfect|love it)$/i
+    if (shortPositiveResponses.test(newInput.trim()) && lastImagePrompt) {
+      return `${lastImagePrompt}. Create a similar variation with subtle differences.`
+    }
   }
 
   return newInput
