@@ -99,12 +99,9 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     .filter((m) => m.role === "assistant")
     .slice(-1)
 
-  console.log("[v0] buildRefinedPrompt - previous images count:", previousImages.length)
-  console.log("[v0] buildRefinedPrompt - new input:", newInput)
-  
-  if (previousImages.length > 0) {
-    console.log("[v0] buildRefinedPrompt - last image prompt:", previousImages[0].images?.[0]?.prompt?.slice(0, 80))
-  }
+  console.log("[v0] buildRefinedPrompt START - newInput:", newInput)
+  console.log("[v0] previousImages count:", previousImages.length)
+  console.log("[v0] lastAssistantMessages count:", lastAssistantMessages.length)
 
   // For short positive responses like "yup", "good", "yes" - use the exact previous prompt
   // Also match phrases like "ok lets generate that", "lets make that", etc.
@@ -118,15 +115,16 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
   ]
   
   const isPositiveResponse = positiveResponsePatterns.some(pattern => pattern.test(newInput.trim()))
-  console.log("[v0] Is positive response:", isPositiveResponse)
+  console.log("[v0] isPositiveResponse:", isPositiveResponse)
   
   if (isPositiveResponse) {
+    console.log("[v0] POSITIVE RESPONSE DETECTED")
     // If we have a previous generated image, use its prompt
     if (previousImages.length > 0) {
       const lastImagePrompt = previousImages[0].images?.[0]?.prompt
-      console.log("[v0] Using previous image prompt:", !!lastImagePrompt)
+      console.log("[v0] Found previous image, using its prompt")
       if (lastImagePrompt) {
-        console.log("[v0] Returning previous prompt length:", lastImagePrompt.length)
+        console.log("[v0] RETURNING PREVIOUS IMAGE PROMPT")
         return lastImagePrompt  // Return the EXACT previous prompt, no modifications
       }
     }
@@ -137,8 +135,8 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     
     if (isExplicitGeneratePhrase && lastAssistantMessages.length > 0) {
       const lastAssistantContent = lastAssistantMessages[0].content
-      console.log("[v0] No previous image, using last assistant message as prompt")
-      console.log("[v0] Assistant message length:", lastAssistantContent.length)
+      console.log("[v0] Using assistant suggestion, length:", lastAssistantContent.length)
+      console.log("[v0] RETURNING ASSISTANT MESSAGE AS PROMPT")
       // Return the assistant's detailed prompt suggestion
       return lastAssistantContent
     }
@@ -156,19 +154,20 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     newInput.toLowerCase().includes(word)
   )
 
-  console.log("[v0] Is modification request:", isRefinement)
+  console.log("[v0] isRefinement:", isRefinement)
 
   // For explicit modifications, append the user's request
   if (isRefinement && previousImages.length > 0) {
     const lastImagePrompt = previousImages[0].images?.[0]?.prompt
     if (lastImagePrompt) {
       const result = `${lastImagePrompt}. User modification: ${newInput}`
-      console.log("[v0] Returning modification prompt length:", result.length)
+      console.log("[v0] RETURNING MODIFICATION PROMPT")
       return result
     }
   }
 
-  console.log("[v0] No match - returning original input")
+  console.log("[v0] NO MATCH - RETURNING ORIGINAL INPUT")
+  console.log("[v0] buildRefinedPrompt END - returning newInput length:", newInput.length)
   return newInput
 }
 
@@ -344,17 +343,18 @@ export function VizzyChat() {
         setUploadedImage(null)
       } else if (isImageGen) {
         // Image generation flow
-        console.log("[v0] Image generation triggered")
-        console.log("[v0] Total messages:", messages.length)
-        console.log("[v0] Last 3 messages:", messages.slice(-3).map(m => ({ role: m.role, content: m.content.slice(0, 50) })))
+        console.log("[v0] ========== IMAGE GENERATION START ==========")
+        console.log("[v0] User input:", trimmedInput)
+        console.log("[v0] Total messages before refine:", messages.length)
         
         const refinedPrompt = buildRefinedPrompt(
           [...messages, userMessage],
           trimmedInput
         )
         
-        console.log("[v0] Trimmed input:", trimmedInput)
-        console.log("[v0] Refined prompt:", refinedPrompt)
+        console.log("[v0] After buildRefinedPrompt - refined prompt starts with:", refinedPrompt.slice(0, 80))
+        console.log("[v0] Refined prompt length:", refinedPrompt.length)
+        console.log("[v0] ========== SENDING TO API ==========")
         
         const numResults = parseNumImages(trimmedInput)
 
