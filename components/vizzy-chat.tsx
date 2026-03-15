@@ -32,14 +32,25 @@ function isImageGenerationIntent(input: string): boolean {
     "please create", "please draw",
   ]
   
-  // Weak keywords that need additional context - words that could be in chat
-  const weakKeywords = ["style", "aesthetic", "vibe", "art", "character", "scene", "landscape"]
+  // Phrases that indicate generating variations of previous images
+  const variationPhrases = [
+    /^(ok|okay|alright|sure)\s+(let|lets|let's).*generate/i,
+    /^(let|lets|let's).*generate/i,
+    /generate\s+that/i,
+    /make\s+that/i,
+    /create\s+that/i,
+  ]
   
   // Short positive responses that should trigger image generation (for iterating on previous images)
   const positiveAffirmations = ["yup", "yeah", "yes", "ok", "okay", "good", "great", "perfect", "excellent", "love it", "nice", "cool", "rad", "awesome", "amazing"]
   
   // Check if input is a short positive affirmation
   if (positiveAffirmations.includes(lowerInput)) {
+    return true
+  }
+  
+  // Check for variation phrases like "ok lets generate that"
+  if (variationPhrases.some(pattern => pattern.test(lowerInput))) {
     return true
   }
   
@@ -53,26 +64,13 @@ function isImageGenerationIntent(input: string): boolean {
   }
   
   // For weak keywords, require a strong generation verb nearby
+  const weakKeywords = ["style", "aesthetic", "vibe", "art", "character", "scene", "landscape"]
+  
   const hasWeakKeyword = weakKeywords.some((keyword) =>
     lowerInput.includes(keyword)
   )
   
   if (hasWeakKeyword) {
-    // Only treat as image generation if paired with creation verbs
-    const generationVerbs = ["in", "for", "of", "with", "a ", "the "]
-    const beforeKeyword = generationVerbs.some((verb) => {
-      const keywordIndex = lowerInput.indexOf("style") + 
-                          lowerInput.indexOf("aesthetic") +
-                          lowerInput.indexOf("vibe") +
-                          lowerInput.indexOf("art") +
-                          lowerInput.indexOf("character") +
-                          lowerInput.indexOf("scene") +
-                          lowerInput.indexOf("landscape")
-      return keywordIndex > 0
-    })
-    
-    // More conservative: only consider weak keywords as generation intent
-    // if they're in the context of "create X in style Y" or similar
     const generationPatterns = [
       /create.*style/i,
       /generate.*style/i,
@@ -104,8 +102,19 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
   }
 
   // For short positive responses like "yup", "good", "yes" - use the exact previous prompt
-  const shortPositiveResponses = /^(yup|yeah|yes|ok|okay|good|great|excellent|perfect|love it|nice|cool|rad|awesome)$/i
-  if (shortPositiveResponses.test(newInput.trim())) {
+  // Also match phrases like "ok lets generate that", "lets make that", etc.
+  const positiveResponsePatterns = [
+    /^(yup|yeah|yes|ok|okay|good|great|perfect|excellent|love it|nice|cool|rad|awesome)$/i,
+    /^(ok|okay|alright|sure)\s+(let|lets|let's).*generate/i,
+    /^(let|lets|let's).*generate/i,
+    /generate\s+that/i,
+    /make\s+that/i,
+    /create\s+that/i,
+  ]
+  
+  const isPositiveResponse = positiveResponsePatterns.some(pattern => pattern.test(newInput.trim()))
+  
+  if (isPositiveResponse) {
     if (previousImages.length > 0) {
       const lastImagePrompt = previousImages[0].images?.[0]?.prompt
       if (lastImagePrompt) {
