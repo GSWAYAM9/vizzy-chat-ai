@@ -22,17 +22,17 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    console.log("[v0] Importing and initializing Groq...")
-    
-    // Dynamic import to avoid module-level errors
+    console.log("[v0] Importing Groq SDK...")
     const { default: Groq } = await import("groq-sdk")
+    console.log("[v0] Groq SDK imported successfully")
+    
     const groq = new Groq({
       apiKey: process.env.GROQ_API_KEY,
     })
+    console.log("[v0] Groq client instantiated")
 
-    console.log("[v0] Calling Groq API for image analysis")
-
-    const message = await groq.chat.completions.create({
+    console.log("[v0] Building message for Groq API...")
+    const messagePayload = {
       model: "mixtral-8x7b-32768",
       max_tokens: 500,
       messages: [
@@ -53,7 +53,12 @@ Provide a detailed analysis including:
 Format your response as natural, flowing commentary with bullet points for specific strengths. Be specific and insightful, not generic.`,
         },
       ],
-    })
+    }
+    console.log("[v0] Message payload prepared, calling Groq...")
+
+    const message = await groq.chat.completions.create(messagePayload)
+    console.log("[v0] ✅ Groq API response received")
+    console.log("[v0] Response choices:", message.choices?.length)
 
     if (!message.choices[0]?.message?.content) {
       console.error("[v0] Groq returned no content")
@@ -68,12 +73,23 @@ Format your response as natural, flowing commentary with bullet points for speci
     })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error("[v0] Error analyzing image:", errorMessage)
-    console.error("[v0] Full error object:", error)
+    const errorStack = error instanceof Error ? error.stack : ""
+    console.error("[v0] ❌ ERROR analyzing image:")
+    console.error("[v0] Message:", errorMessage)
+    console.error("[v0] Stack:", errorStack)
+    console.error("[v0] Full error object:", JSON.stringify(error))
     
-    // Return a meaningful fallback instead of failing
+    // Return a fallback response with a hint about the error
+    const fallbackMessage = errorMessage.includes("API key") || errorMessage.includes("authentication")
+      ? "Image generated successfully. (Note: Image analysis is not configured)"
+      : "Image generated successfully. Feel free to share your thoughts about what you see!"
+    
     return NextResponse.json({
-      analysis: "Image generated successfully. Feel free to share your thoughts about what you see!"
+      analysis: fallbackMessage,
+      _debug: {
+        error: errorMessage,
+        hasApiKey: !!process.env.GROQ_API_KEY
+      }
     })
   }
 }
