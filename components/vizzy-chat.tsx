@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import Link from "next/link"
 import { ChatMessage } from "@/components/chat-message"
 import { ChatInput } from "@/components/chat-input"
 import { ImageLightbox } from "@/components/image-lightbox"
@@ -11,7 +12,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Sparkles, Plus, Sun, Moon, Trash2 } from "lucide-react"
+import { Sparkles, Plus, Sun, Moon, Trash2, Clock } from "lucide-react"
 import { useTheme } from "next-themes"
 import type { ChatMessage as ChatMessageType } from "@/lib/types"
 
@@ -309,6 +310,46 @@ export function VizzyChat() {
 
         const assistantText = generateAssistantText(data.images.length, refinedPrompt)
 
+        // Save generated images to backend
+        const savedImages = []
+        for (const img of data.images) {
+          try {
+            // Generate a temporary token/user ID if not exists
+            let token = localStorage.getItem('token')
+            if (!token) {
+              token = `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+              localStorage.setItem('token', token)
+              console.log("[v0] Generated temporary token:", token)
+            }
+
+            // Save image to backend history
+            const saveResponse = await fetch("/api/gallery/images/", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                image_url: img.url,
+                prompt: refinedPrompt,
+                aspect_ratio: aspectRatio,
+                seed: img.seed,
+                model: "runware"
+              })
+            })
+
+            if (saveResponse.ok) {
+              const savedImage = await saveResponse.json()
+              savedImages.push(savedImage)
+              console.log("[v0] Image saved to history:", savedImage.id)
+            } else {
+              console.error("[v0] Failed to save image to history:", saveResponse.status)
+            }
+          } catch (err) {
+            console.error("[v0] Error saving image to history:", err)
+          }
+        }
+
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
@@ -455,6 +496,21 @@ export function VizzyChat() {
               </Tooltip>
             </>
           )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/history">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-foreground rounded-xl"
+                  aria-label="View generation history"
+                >
+                  <Clock className="size-4" />
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Generation history</TooltipContent>
+          </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
