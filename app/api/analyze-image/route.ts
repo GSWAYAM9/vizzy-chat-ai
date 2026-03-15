@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
       })
 
       const message = await groq.chat.completions.create({
-        model: "mixtral-8x7b-32768",
+        model: "llama-3.1-70b-versatile",
         max_tokens: 500,
         messages: [
           {
