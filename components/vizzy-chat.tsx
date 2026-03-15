@@ -132,7 +132,10 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     }
     
     // If no previous image exists, look for a detailed prompt in the last assistant message
-    if (lastAssistantMessages.length > 0) {
+    // BUT ONLY if the user explicitly used a "generate that" style phrase
+    const isExplicitGeneratePhrase = /^(ok|okay|alright|sure)\s+(let|lets|let's).*generate|^(let|lets|let's).*generate|generate\s+that|make\s+that|create\s+that/i.test(newInput.trim())
+    
+    if (isExplicitGeneratePhrase && lastAssistantMessages.length > 0) {
       const lastAssistantContent = lastAssistantMessages[0].content
       console.log("[v0] No previous image, using last assistant message as prompt")
       console.log("[v0] Assistant message length:", lastAssistantContent.length)
