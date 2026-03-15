@@ -94,12 +94,20 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     .filter((m) => m.role === "assistant" && m.images && m.images.length > 0)
     .slice(-1)
 
-  console.log("[v0] buildRefinedPrompt - previous images count:", previousImages.length)
-  console.log("[v0] buildRefinedPrompt - new input:", newInput)
+  console.log("[v0] buildRefinedPrompt - START")
+  console.log("[v0] Total messages:", messages.length)
+  console.log("[v0] Messages with images:", messages.filter((m) => m.role === "assistant" && m.images).length)
+  console.log("[v0] Previous images found:", previousImages.length)
   
   if (previousImages.length > 0) {
-    console.log("[v0] buildRefinedPrompt - last image prompt:", previousImages[0].images?.[0]?.prompt?.slice(0, 80))
+    const lastMsg = previousImages[0]
+    console.log("[v0] Last assistant message images count:", lastMsg.images?.length)
+    if (lastMsg.images?.[0]) {
+      console.log("[v0] First image prompt:", lastMsg.images[0].prompt?.slice(0, 100))
+    }
   }
+  
+  console.log("[v0] New input:", newInput)
 
   // For short positive responses like "yup", "good", "yes" - use the exact previous prompt
   // Also match phrases like "ok lets generate that", "lets make that", etc.
@@ -113,12 +121,14 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
   ]
   
   const isPositiveResponse = positiveResponsePatterns.some(pattern => pattern.test(newInput.trim()))
+  console.log("[v0] Is positive response:", isPositiveResponse)
   
   if (isPositiveResponse) {
     if (previousImages.length > 0) {
       const lastImagePrompt = previousImages[0].images?.[0]?.prompt
+      console.log("[v0] Using previous image prompt:", !!lastImagePrompt)
       if (lastImagePrompt) {
-        console.log("[v0] buildRefinedPrompt - returning exact previous prompt for variation")
+        console.log("[v0] Returning previous prompt length:", lastImagePrompt.length)
         return lastImagePrompt  // Return the EXACT previous prompt, no modifications
       }
     }
@@ -136,19 +146,19 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     newInput.toLowerCase().includes(word)
   )
 
-  console.log("[v0] buildRefinedPrompt - is modification request:", isRefinement)
+  console.log("[v0] Is modification request:", isRefinement)
 
   // For explicit modifications, append the user's request
   if (isRefinement && previousImages.length > 0) {
     const lastImagePrompt = previousImages[0].images?.[0]?.prompt
     if (lastImagePrompt) {
       const result = `${lastImagePrompt}. User modification: ${newInput}`
-      console.log("[v0] buildRefinedPrompt - returning modification prompt")
+      console.log("[v0] Returning modification prompt length:", result.length)
       return result
     }
   }
 
-  console.log("[v0] buildRefinedPrompt - no previous image found, returning original input")
+  console.log("[v0] No match - returning original input")
   return newInput
 }
 
