@@ -101,6 +101,13 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     .filter((m) => m.role === "assistant" && m.images && m.images.length > 0)
     .slice(-1)
 
+  console.log("[v0] buildRefinedPrompt - previous images count:", previousImages.length)
+  console.log("[v0] buildRefinedPrompt - new input:", newInput)
+  
+  if (previousImages.length > 0) {
+    console.log("[v0] buildRefinedPrompt - last image prompt:", previousImages[0].images?.[0]?.prompt?.slice(0, 50))
+  }
+
   const refinementWords = [
     "make it", "change", "more", "less", "add", "remove", "try",
     "darker", "brighter", "bigger", "smaller", "different", "same but",
@@ -117,22 +124,29 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     newInput.toLowerCase().includes(word)
   )
 
+  console.log("[v0] buildRefinedPrompt - is refinement:", isRefinement)
+
   // If we have a previous image, use it as context for variations
   if (previousImages.length > 0) {
     const lastImagePrompt = previousImages[0].images?.[0]?.prompt
     
     if (isRefinement && lastImagePrompt) {
       // User explicitly asked for a modification
-      return `${lastImagePrompt}. Modification: ${newInput}`
+      const result = `${lastImagePrompt}. Modification: ${newInput}`
+      console.log("[v0] buildRefinedPrompt - returning modification prompt")
+      return result
     }
     
     // For short positive responses like "yup", "good", "yes" - generate variations
     const shortPositiveResponses = /^(yup|yeah|yes|ok|okay|good|great|excellent|perfect|love it)$/i
     if (shortPositiveResponses.test(newInput.trim()) && lastImagePrompt) {
-      return `${lastImagePrompt}. Create a similar variation with subtle differences.`
+      const result = `${lastImagePrompt}. Create a similar variation with subtle differences.`
+      console.log("[v0] buildRefinedPrompt - returning variation prompt")
+      return result
     }
   }
 
+  console.log("[v0] buildRefinedPrompt - returning original input")
   return newInput
 }
 
@@ -308,10 +322,18 @@ export function VizzyChat() {
         setUploadedImage(null)
       } else if (isImageGen) {
         // Image generation flow
+        console.log("[v0] Image generation triggered")
+        console.log("[v0] Total messages:", messages.length)
+        console.log("[v0] Last 3 messages:", messages.slice(-3).map(m => ({ role: m.role, content: m.content.slice(0, 50) })))
+        
         const refinedPrompt = buildRefinedPrompt(
           [...messages, userMessage],
           trimmedInput
         )
+        
+        console.log("[v0] Trimmed input:", trimmedInput)
+        console.log("[v0] Refined prompt:", refinedPrompt)
+        
         const numResults = parseNumImages(trimmedInput)
 
         const response = await fetch("/api/generate", {
