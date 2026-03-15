@@ -1,30 +1,41 @@
 import { NextRequest, NextResponse } from "next/server"
+import Groq from "groq-sdk"
+
+// Initialize Groq client at module level
+let groq: Groq | null = null
+if (process.env.GROQ_API_KEY) {
+  try {
+    groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY,
+    })
+    console.log("[v0] Groq client initialized for analyze-image")
+  } catch (e) {
+    console.error("[v0] Failed to initialize Groq client for analyze-image:", e)
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
     const { prompt, imageUrl } = await request.json()
 
     if (!prompt) {
+      console.error("[v0] Analyze-image: No prompt provided")
       return NextResponse.json(
         { error: "Prompt is required" },
         { status: 400 }
       )
     }
 
-    if (!process.env.GROQ_API_KEY) {
-      console.log("[v0] Groq not configured, skipping image analysis")
+    console.log("[v0] Analyzing image with prompt:", prompt.slice(0, 100))
+
+    if (!groq) {
+      console.warn("[v0] Groq not available - returning fallback analysis")
       return NextResponse.json({
         analysis: "Image generated successfully. Feel free to refine it with your feedback!"
       })
     }
 
-    // Lazy import Groq only if API key exists
-    const Groq = (await import("groq-sdk")).default
-    const groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY,
-    })
-
-    console.log("[v0] Analyzing image with prompt:", prompt.slice(0, 100))
+    console.log("[v0] Calling Groq API for image analysis")
 
     const message = await groq.chat.completions.create({
       model: "mixtral-8x7b-32768",
@@ -50,19 +61,23 @@ Format your response as natural, flowing commentary with bullet points for speci
     })
 
     if (!message.choices[0]?.message?.content) {
+      console.error("[v0] Groq returned no content")
       throw new Error("No response from Groq")
     }
 
     const analysis = message.choices[0].message.content.trim()
+    console.log("[v0] Analysis generated successfully, length:", analysis.length)
 
     return NextResponse.json({
       analysis,
     })
   } catch (error) {
-    console.error("[v0] Error analyzing image:", error)
-    // Don't fail the image generation if analysis fails
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error("[v0] Error analyzing image:", errorMessage)
+    
+    // Return a meaningful fallback
     return NextResponse.json({
-      analysis: "Image generated successfully. Feel free to share your thoughts!"
+      analysis: "Image generated successfully. Feel free to share your thoughts about what you see!"
     })
   }
 }
