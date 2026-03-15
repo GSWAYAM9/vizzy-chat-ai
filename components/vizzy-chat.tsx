@@ -94,20 +94,17 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
     .filter((m) => m.role === "assistant" && m.images && m.images.length > 0)
     .slice(-1)
 
-  console.log("[v0] buildRefinedPrompt - START")
-  console.log("[v0] Total messages:", messages.length)
-  console.log("[v0] Messages with images:", messages.filter((m) => m.role === "assistant" && m.images).length)
-  console.log("[v0] Previous images found:", previousImages.length)
+  // Also get the last assistant message (even without images) for suggested prompts
+  const lastAssistantMessages = messages
+    .filter((m) => m.role === "assistant")
+    .slice(-1)
+
+  console.log("[v0] buildRefinedPrompt - previous images count:", previousImages.length)
+  console.log("[v0] buildRefinedPrompt - new input:", newInput)
   
   if (previousImages.length > 0) {
-    const lastMsg = previousImages[0]
-    console.log("[v0] Last assistant message images count:", lastMsg.images?.length)
-    if (lastMsg.images?.[0]) {
-      console.log("[v0] First image prompt:", lastMsg.images[0].prompt?.slice(0, 100))
-    }
+    console.log("[v0] buildRefinedPrompt - last image prompt:", previousImages[0].images?.[0]?.prompt?.slice(0, 80))
   }
-  
-  console.log("[v0] New input:", newInput)
 
   // For short positive responses like "yup", "good", "yes" - use the exact previous prompt
   // Also match phrases like "ok lets generate that", "lets make that", etc.
@@ -124,6 +121,7 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
   console.log("[v0] Is positive response:", isPositiveResponse)
   
   if (isPositiveResponse) {
+    // If we have a previous generated image, use its prompt
     if (previousImages.length > 0) {
       const lastImagePrompt = previousImages[0].images?.[0]?.prompt
       console.log("[v0] Using previous image prompt:", !!lastImagePrompt)
@@ -131,6 +129,15 @@ function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): stri
         console.log("[v0] Returning previous prompt length:", lastImagePrompt.length)
         return lastImagePrompt  // Return the EXACT previous prompt, no modifications
       }
+    }
+    
+    // If no previous image exists, look for a detailed prompt in the last assistant message
+    if (lastAssistantMessages.length > 0) {
+      const lastAssistantContent = lastAssistantMessages[0].content
+      console.log("[v0] No previous image, using last assistant message as prompt")
+      console.log("[v0] Assistant message length:", lastAssistantContent.length)
+      // Return the assistant's detailed prompt suggestion
+      return lastAssistantContent
     }
   }
 
