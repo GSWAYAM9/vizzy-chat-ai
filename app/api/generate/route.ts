@@ -176,7 +176,7 @@ Transform this user request into a detailed image generation prompt. Focus on:
 Keep it concise but descriptive (under 150 words). Return ONLY the refined prompt, nothing else.`
 
     const message = await groq.chat.completions.create({
-      model: "llama-3.1-70b-versatile",
+      model: "llama-3.3-70b-versatile",
       max_tokens: 200,
       messages: [
         {
