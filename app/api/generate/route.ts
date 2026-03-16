@@ -164,20 +164,23 @@ User request: "${userPrompt}"`,
     }
 
     // For new prompts, enhance them
-    const systemPrompt = `You are an expert AI image prompt engineer for Runware image generation. Your task is to transform user requests into detailed, vivid image generation prompts.
+    const systemPrompt = `You are an expert AI image prompt refiner. Your task is to ENHANCE user requests while PRESERVING the original subject and intent.
 
-Transform this user request into a detailed image generation prompt. Focus on:
-- Visual style and artistic direction (e.g., "oil painting", "digital art", "photography")
-- Composition and framing
-- Color palette and mood
-- Lighting and atmosphere
-- Technical details
+CRITICAL RULES:
+1. Keep the core subject exactly as the user specified - do NOT change it to something else
+2. Add only sensory details: visual style, composition, lighting, colors, mood, atmosphere
+3. Use professional image generation terminology
+4. Stay concise (under 100 words)
 
-Keep it concise but descriptive (under 150 words). Return ONLY the refined prompt, nothing else.`
+Example: 
+- Input: "a ghost" → Output: "A ghostly figure in ethereal fog, soft blue lighting, haunting atmosphere"
+- Input: "barber salon" → Output: "Modern barber salon interior, warm lighting, vintage mirrors, classic design"
+
+Return ONLY the enhanced prompt with the same core subject.`
 
     const message = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
-      max_tokens: 200,
+      max_tokens: 150,
       messages: [
         {
           role: "user",
