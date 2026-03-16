@@ -37,7 +37,9 @@ export async function POST(request: NextRequest) {
 
 Generation prompt: "${prompt}"
 
-Provide your analysis ONLY as bullet points in this format:
+IMPORTANT: Format your response with EACH bullet point on a NEW LINE. Start each line with a bullet point (•).
+
+Provide analysis for:
 • Overall assessment of how well the image matches the prompt
 • Artistic style and technical execution details
 • Composition and visual elements that work well
@@ -46,7 +48,9 @@ Provide your analysis ONLY as bullet points in this format:
 • Interesting artistic choices or design decisions
 • Technical quality observations
 
-Be specific and insightful, not generic. Focus on what makes this image successful. Return ONLY the bullet points, nothing else.`,
+Be specific and insightful, not generic. Focus on what makes this image successful. 
+
+CRITICAL: Each bullet point must be on its own line. Do not combine multiple bullet points on the same line.`,
           },
         ],
       })
@@ -55,7 +59,13 @@ Be specific and insightful, not generic. Focus on what makes this image successf
         throw new Error("No response from Groq")
       }
 
-      const analysis = message.choices[0].message.content.trim()
+      let analysis = message.choices[0].message.content.trim()
+      
+      // Ensure proper formatting: split by bullet points and rejoin with newlines
+      if (analysis.includes('•')) {
+        const bulletPoints = analysis.split('•').filter(point => point.trim().length > 0)
+        analysis = bulletPoints.map(point => '• ' + point.trim()).join('\n')
+      }
 
       return NextResponse.json({
         analysis,
