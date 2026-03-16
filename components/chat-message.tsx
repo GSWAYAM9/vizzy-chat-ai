@@ -46,7 +46,7 @@ export function ChatMessage({ message, onImageClick, onRetry }: ChatMessageProps
         {message.content && (
           <div
             className={cn(
-              "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+              "rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words",
               isUser
                 ? "bg-accent text-accent-foreground rounded-br-lg"
                 : "bg-secondary/80 text-secondary-foreground rounded-bl-lg border border-border/40"
