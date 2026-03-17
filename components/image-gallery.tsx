@@ -28,7 +28,7 @@ export function ImageGallery({ aspectRatioFilter, showFavorites = false }: Image
 
   const { data: galleryData, isLoading, error } = useSWR(
     showFavorites ? "/api/gallery/images/favorites" : "/api/gallery/images",
-    (url) => fetch(url).then((r) => r.json()),
+    (url: string) => fetch(url).then((r) => r.json()),
     { revalidateOnFocus: false }
   )
 
