@@ -101,7 +101,7 @@ export function CustomInstructionsManager() {
         </h3>
         <Dialog>
           <DialogTrigger asChild>
-            <Button size="sm" gap="2">
+            <Button size="sm" className="gap-2">
               <Plus size={16} />
               New Instruction
             </Button>
