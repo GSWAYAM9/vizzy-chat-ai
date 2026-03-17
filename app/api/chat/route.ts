@@ -34,11 +34,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Format messages for Groq SDK
-    const formattedMessages = messages.map((msg: { role: string; content: string }) => ({
-      role: msg.role as "user" | "assistant",
-      content: msg.content,
-    }))
+    // Format messages for Groq SDK - include system as first message
+    const formattedMessages = [
+      {
+        role: "system" as const,
+        content: SYSTEM_PROMPT,
+      },
+      ...messages.map((msg: { role: string; content: string }) => ({
+        role: msg.role as "user" | "assistant" | "system",
+        content: msg.content,
+      })),
+    ]
 
     console.log("[v0] Chat API called with", formattedMessages.length, "messages")
 
@@ -49,7 +55,6 @@ export async function POST(request: NextRequest) {
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: formattedMessages,
-      system: SYSTEM_PROMPT,
       temperature: 0.8,
       max_tokens: 500,
     })
