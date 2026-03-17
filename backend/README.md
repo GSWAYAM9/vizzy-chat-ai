@@ -1,233 +1,232 @@
-# Deckoviz Backend API
+# Vizzy Chat AI - DASP 1.2 Backend
 
-A comprehensive Django REST API backend for the Deckoviz mobile app, featuring user authentication, collection management, AI image generation, and social discovery.
-
-## Features
-
-- **Authentication**: Google OAuth integration with JWT tokens
-- **User Profiles**: Extended user profiles with preferences and social metrics
-- **Collections**: Create and manage collections of curated artwork
-- **AI Features**: Dream visualizer, style transfer, image generation (integrated with Runware & Stability AI)
-- **Social Features**: Follow users, share collections, trending discovery
-- **Forums**: Community discussion boards with threaded replies
-- **Search**: Powerful search and discovery by mood, style, and tags
+Production-ready backend for Vizzy Chat AI with FastAPI for APIs and Django for admin dashboard.
 
 ## Architecture
 
+- **FastAPI**: High-performance REST API for image generation, analysis, gallery, and batch processing
+- **Django**: Admin dashboard for analytics, user management, and system monitoring
+- **Supabase**: PostgreSQL database with built-in authentication and RLS policies
+- **Redis**: Caching and background task queue (Celery)
+
+## Project Structure
+
 ```
 backend/
-├── deckoviz_backend/       # Django project settings
-│   ├── settings.py         # Project configuration
-│   ├── urls.py             # URL routing
-│   └── wsgi.py             # WSGI configuration
-├── api/                    # Main Django app
-│   ├── models.py           # Database models
-│   ├── views.py            # API endpoints
-│   ├── serializers.py      # Data serialization
-│   ├── authentication.py    # Auth system
-│   └── tasks.py            # Async tasks (Celery)
-├── manage.py               # Django management
-├── requirements.txt        # Python dependencies
-└── API_DOCUMENTATION.md    # Full API reference
+├── main.py                          # FastAPI application entry point
+├── app/
+│   ├── core/
+│   │   ├── config.py               # Environment settings
+│   │   └── supabase_client.py       # Supabase client initialization
+│   ├── api/
+│   │   └── v1/
+│   │       └── routers/
+│   │           ├── auth.py         # Authentication endpoints
+│   │           ├── images.py       # Image generation endpoints
+│   │           ├── gallery.py      # Gallery management endpoints
+│   │           ├── analysis.py     # Analysis caching endpoints
+│   │           └── batch_jobs.py   # Batch processing endpoints
+│   └── schemas.py                  # Pydantic models
+├── vizzy_admin/                     # Django admin application
+│   ├── settings.py                 # Django configuration
+│   ├── urls.py                     # URL routing
+│   ├── views.py                    # Admin API views
+│   ├── wsgi.py                     # WSGI application
+│   └── asgi.py                     # ASGI application
+├── migrations/
+│   └── 001_init_schema.sql        # Database schema
+├── requirements.txt                # Python dependencies
+├── .env.example                    # Environment variables template
+└── manage.py                       # Django CLI
 ```
 
-## Database Models
+## Setup
 
-- **UserProfile**: Extended user information
-- **Collection**: User-curated collections
-- **Media**: Individual artworks in collections
-- **AITask**: AI generation history and results
-- **SocialShare**: Collection sharing relationships
-- **UserFollow**: User follow relationships
-- **ForumPost**: Community forum posts
-- **ForumReply**: Replies to forum posts
+### 1. Install Dependencies
 
-## API Endpoints
-
-### Authentication
-- `POST /auth/login/google/` - Google OAuth login
-- `POST /auth/refresh-token/` - Refresh JWT token
-
-### User Profile
-- `GET /profile/profile/` - Get current user
-- `PATCH /profile/update_profile/` - Update profile
-- `GET /profile/public/{user_id}/` - Get public profile
-- `POST /profile/preferences/` - Set preferences
-
-### Collections
-- `POST /collections/` - Create collection
-- `GET /collections/` - List collections (paginated)
-- `GET /collections/{id}/` - Get collection details
-- `PATCH /collections/{id}/` - Update collection
-- `DELETE /collections/{id}/` - Delete collection
-- `POST /collections/{id}/add_media/` - Add artwork
-- `DELETE /collections/{id}/remove_media/` - Remove artwork
-- `POST /collections/{id}/favorite/` - Star collection
-
-### AI Features
-- `POST /ai/dream-visualizer/` - Generate dream visualization
-- `POST /ai/generate-image/` - Generate image from text
-- `GET /ai/` - List AI tasks
-- `GET /ai/{task_id}/` - Get task result
-
-See `API_DOCUMENTATION.md` for complete endpoint reference.
-
-## Setup Instructions
-
-### Prerequisites
-- Python 3.9+
-- PostgreSQL 12+
-- Redis 6+ (for Celery)
-- Virtual environment
-
-### 1. Environment Setup
 ```bash
-# Clone repository
-git clone <repo-url>
 cd backend
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Configuration
+### 2. Configure Environment
+
+Copy `.env.example` to `.env` and fill in your credentials:
+
 ```bash
-# Copy environment template
 cp .env.example .env
-
-# Edit .env with your settings
-# - Database credentials
-# - Google OAuth keys
-# - API keys for Runware and Stability AI
 ```
 
-### 3. Database Setup
+Required environment variables:
+- `SUPABASE_URL` - Your Supabase project URL
+- `SUPABASE_KEY` - Your Supabase anonymous key
+- `SUPABASE_JWT_SECRET` - Your Supabase JWT secret
+- `FAL_API_KEY` - Fal AI API key for image generation
+- `GROQ_API_KEY` - Groq API key for prompt refinement and analysis
+- `REDIS_URL` - Redis connection string (optional, for caching)
+
+### 3. Initialize Database
+
+Run the SQL migration in Supabase:
+
+```sql
+-- Go to Supabase SQL Editor and run:
+-- Copy contents of migrations/001_init_schema.sql
+```
+
+### 4. Run FastAPI Server
+
 ```bash
-# Run migrations
-python manage.py migrate
-
-# Create superuser
-python manage.py createsuperuser
+python main.py
+# OR
+uvicorn main:app --reload
 ```
 
-### 4. Run Development Server
+Server will be available at: `http://localhost:8000`
+
+### 5. Run Django Admin (optional)
+
 ```bash
-# Start Django development server
-python manage.py runserver
-
-# In another terminal, start Celery (for async tasks)
-celery -A deckoviz_backend worker -l info
+python manage.py runserver 8001
 ```
 
-The API will be available at `http://localhost:8000/api/`
+Admin dashboard at: `http://localhost:8001/admin`
 
-## Testing
+## API Endpoints
 
-### Test Google OAuth Login
+### Authentication (`/api/v1/auth`)
+
+- `POST /register` - Register new user
+- `POST /login` - Login user
+- `GET /me` - Get current user profile
+
+### Images (`/api/v1/images`)
+
+- `POST /generate` - Generate image from prompt
+- `GET /history` - Get user's image history
+- `GET /{image_id}` - Get image details with analysis
+
+### Gallery (`/api/v1/gallery`)
+
+- `POST /` - Add image to gallery
+- `GET /` - Get user's gallery (supports favorite filtering)
+- `PATCH /{gallery_item_id}` - Update gallery item
+- `DELETE /{gallery_item_id}` - Remove from gallery
+
+### Analysis (`/api/v1/analysis`)
+
+- `POST /{image_id}` - Cache image analysis
+- `GET /{image_id}` - Get cached analysis
+- `DELETE /{image_id}` - Clear analysis cache
+
+### Batch Jobs (`/api/v1/batch`)
+
+- `POST /` - Create batch generation job
+- `GET /{batch_job_id}` - Get batch job details
+- `GET /` - List user's batch jobs (supports status filtering)
+
+### Admin Analytics (Django)
+
+- `GET /api/analytics/` - System metrics and stats
+- `GET /api/users/` - List users with stats
+- `GET /api/jobs/` - List batch jobs
+
+## Authentication
+
+All FastAPI endpoints (except `/health`) require authentication via Bearer token:
+
 ```bash
-curl -X POST http://localhost:8000/api/auth/login/google/ \
-  -H "Content-Type: application/json" \
-  -d '{"token": "google_oauth_token"}'
+curl -H "Authorization: Bearer <access_token>" http://localhost:8000/api/v1/images/history
 ```
 
-### Test Protected Endpoint
+The access token is obtained from the `/api/v1/auth/login` or `/api/v1/auth/register` endpoints.
+
+## Database Schema
+
+### Users Table
+- `id` (UUID, PK) - Supabase Auth user ID
+- `email` (VARCHAR) - User email
+- `username` (VARCHAR, nullable) - Display name
+- `avatar_url` (TEXT, nullable) - Profile picture URL
+- `bio` (TEXT, nullable) - User bio
+- `created_at` (TIMESTAMP) - Account creation date
+
+### Images Table
+- `id` (UUID, PK)
+- `user_id` (UUID, FK) - Image owner
+- `prompt_id` (UUID, FK) - Associated prompt
+- `image_url` (TEXT) - Generated image URL
+- `fal_image_id` (VARCHAR) - Fal AI image ID
+- `generation_model` (VARCHAR) - Model used
+- `created_at` (TIMESTAMP)
+
+### Image Analysis Table
+- `id` (UUID, PK)
+- `image_id` (UUID, FK, UNIQUE) - Associated image
+- `analysis_text` (TEXT) - Analysis content (bullet points)
+- `analysis_model` (VARCHAR) - Model used
+- `cached` (BOOLEAN) - Whether this is cached
+- `created_at` (TIMESTAMP)
+
+### Batch Jobs Table
+- `id` (UUID, PK)
+- `user_id` (UUID, FK)
+- `job_name` (VARCHAR)
+- `prompts` (TEXT[]) - Array of prompts
+- `status` (VARCHAR) - pending/processing/completed/failed
+- `total_images` (INT)
+- `generated_images` (INT)
+- `failed_images` (INT)
+- `started_at` (TIMESTAMP)
+- `completed_at` (TIMESTAMP)
+
+### Gallery Items Table
+- `id` (UUID, PK)
+- `user_id` (UUID, FK)
+- `image_id` (UUID, FK)
+- `title` (VARCHAR, nullable)
+- `description` (TEXT, nullable)
+- `is_favorite` (BOOLEAN)
+- `saved_at` (TIMESTAMP)
+
+## Row Level Security (RLS)
+
+All tables have RLS enabled with policies ensuring:
+- Users can only view/modify their own data
+- Gallery items are private to the owner
+- Analysis is only visible to image owner
+
+## Performance Optimization
+
+- Indexes on `user_id`, `created_at`, and `image_id`
+- Analysis caching to avoid redundant API calls
+- Batch processing for multiple image generations
+- RLS policies for efficient data filtering
+
+## Production Deployment
+
+### Environment Variables
 ```bash
-curl -X GET http://localhost:8000/api/profile/profile/ \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+DEBUG=False
+SECRET_KEY=<generate-secure-key>
+ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
 ```
 
-### Create Collection
+### Run with Gunicorn (FastAPI)
 ```bash
-curl -X POST http://localhost:8000/api/collections/ \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "My Collection",
-    "description": "Description",
-    "mood": "inspiration",
-    "style": "abstract",
-    "is_public": true,
-    "tags": ["tag1", "tag2"]
-  }'
+gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app
 ```
 
-## Deployment
-
-### Production Checklist
-- Set `DEBUG=False` in production
-- Use strong `DJANGO_SECRET_KEY`
-- Configure PostgreSQL database
-- Setup Redis for Celery
-- Use Gunicorn or similar WSGI server
-- Enable HTTPS
-- Configure CORS properly
-- Setup environment variables securely
-- Run `python manage.py collectstatic`
-
-### Docker Deployment
+### Run Django with Gunicorn
 ```bash
-# Build image
-docker build -t deckoviz-backend .
-
-# Run container
-docker run -p 8000:8000 deckoviz-backend
+gunicorn vizzy_admin.wsgi:application
 ```
 
-## Key Technologies
+## Future Enhancements
 
-- **Django 4.2**: Web framework
-- **Django REST Framework**: API development
-- **PostgreSQL**: Primary database
-- **Redis**: Caching and Celery broker
-- **Celery**: Async task queue for AI processing
-- **Google Auth**: OAuth authentication
-- **JWT**: Token-based authentication
-- **Runware & Stability AI**: AI image generation
+- WebSocket support for real-time batch job progress
+- Image storage integration (S3/Blob storage)
+- Advanced analytics and reporting
+- Rate limiting and quota management
+- Payment processing integration
 
-## API Response Format
-
-All endpoints return standardized JSON responses:
-
-```json
-{
-  "count": 100,
-  "next": "url_to_next_page",
-  "previous": null,
-  "results": [...]
-}
-```
-
-Error responses:
-```json
-{
-  "error": "Error message",
-  "status": "error_code"
-}
-```
-
-## Rate Limiting
-
-AI generation endpoints are rate-limited to prevent abuse:
-- 10 requests per minute for authenticated users
-- 5 requests per minute for image generation
-
-## Next Steps
-
-1. **Implement async tasks** for AI features in `tasks.py`
-2. **Add social endpoints** for following, sharing, forums
-3. **Implement search functionality** with filtering
-4. **Add real-time notifications** with WebSockets
-5. **Setup monitoring and logging**
-6. **Add API versioning** for backward compatibility
-
-## Support
-
-For questions or issues, contact the development team or file an issue in the repository.
-
-## License
-
-Proprietary - Deckoviz, Inc.
