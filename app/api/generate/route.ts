@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { v4 as uuidv4 } from "uuid"
 import Groq from "groq-sdk"
 
 // Runware API endpoint for image generation
@@ -66,7 +65,7 @@ export async function POST(request: NextRequest) {
 
     // Fire multiple requests in parallel for multiple results
     const requests = Array.from({ length: count }, () => {
-      const taskUUID = uuidv4()
+      const taskUUID = crypto.randomUUID()
       const payload = {
         taskType: "imageInference",
         taskUUID,
