@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { generateText } from "ai"
-import { createGroq } from "@ai-sdk/groq"
-
-const groq = createGroq({
-  apiKey: process.env.GROQ_API_KEY,
-})
+import Groq from "groq-sdk"
 
 const SYSTEM_PROMPT = `You are Vizzy, a creative assistant specialized in helping users generate and refine AI images. Your role is to:
 
@@ -39,7 +34,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Format messages for AI SDK
+    // Format messages for Groq SDK
     const formattedMessages = messages.map((msg: { role: string; content: string }) => ({
       role: msg.role as "user" | "assistant",
       content: msg.content,
@@ -47,13 +42,19 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Chat API called with", formattedMessages.length, "messages")
 
-    const { text } = await generateText({
-      model: groq("llama-3.3-70b-versatile"),
-      system: SYSTEM_PROMPT,
-      messages: formattedMessages,
-      temperature: 0.8,
-      maxTokens: 500,
+    const groq = new Groq({
+      apiKey: apiKey,
     })
+
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: formattedMessages,
+      system: SYSTEM_PROMPT,
+      temperature: 0.8,
+      max_tokens: 500,
+    })
+
+    const text = response.choices[0]?.message?.content || ""
 
     console.log("[v0] Generated response:", text.substring(0, 100))
 
