@@ -45,7 +45,7 @@ export function StoryViewer({ storyId }: StoryViewerProps) {
     return <div className="text-center py-8">Loading story...</div>
   }
 
-  const sequences = story.sequences || []
+  const sequences: StorySequence[] = story.sequences || []
   const currentSequence = sequences[currentScene]
 
   const handleNext = () => {
