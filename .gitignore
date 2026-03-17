@@ -8,3 +8,14 @@ node_modules/
 .next/
 .env*.local
 .DS_Store
+
+# Backend (Python)
+backend/venv/
+backend/__pycache__/
+backend/*.egg-info/
+backend/.pytest_cache/
+backend/dist/
+backend/build/
+backend/.env
+*.pyc
+.venv/
