@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     // Fire multiple requests in parallel for multiple results
     const requests = Array.from({ length: count }, () => {
       const taskUUID = crypto.randomUUID()
-      const payload: Record<string, any> = {
+      const payload: GeneratePayload = {
         taskType: "imageInference",
         taskUUID,
         outputType: "URL",
