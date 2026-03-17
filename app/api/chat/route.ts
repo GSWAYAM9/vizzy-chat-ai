@@ -16,20 +16,34 @@ When a user asks for image generation details like aspect ratio or art style rec
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[v0] Chat API: POST request received")
+    
     const apiKey = process.env.GROQ_API_KEY
     if (!apiKey) {
+      console.error("[v0] GROQ_API_KEY not configured")
       return NextResponse.json(
         { error: "GROQ_API_KEY is not configured" },
         { status: 500 }
       )
     }
 
-    const body = await request.json()
+    let body
+    try {
+      body = await request.json()
+    } catch (parseError) {
+      console.error("[v0] Failed to parse JSON body:", parseError)
+      return NextResponse.json(
+        { error: "Invalid JSON body" },
+        { status: 400 }
+      )
+    }
+    
     const { messages } = body
 
     if (!Array.isArray(messages) || messages.length === 0) {
+      console.error("[v0] Invalid messages format:", { messages })
       return NextResponse.json(
-        { error: "Messages array is required" },
+        { error: "Messages array is required and cannot be empty" },
         { status: 400 }
       )
     }
@@ -46,28 +60,59 @@ export async function POST(request: NextRequest) {
       })),
     ]
 
-    console.log("[v0] Chat API called with", formattedMessages.length, "messages")
+    console.log("[v0] Chat API: formatted", formattedMessages.length, "messages")
 
-    const groq = new Groq({
-      apiKey: apiKey,
-    })
+    let groq: any
+    try {
+      groq = new Groq({
+        apiKey: apiKey,
+      })
+    } catch (groqInitError) {
+      console.error("[v0] Failed to initialize Groq client:", groqInitError)
+      return NextResponse.json(
+        { error: "Failed to initialize Groq client" },
+        { status: 500 }
+      )
+    }
 
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: formattedMessages,
-      temperature: 0.8,
-      max_tokens: 500,
-    })
+    let response
+    try {
+      console.log("[v0] Chat API: calling Groq with model llama-3.3-70b-versatile")
+      response = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: formattedMessages,
+        temperature: 0.8,
+        max_tokens: 500,
+      })
+    } catch (groqError: any) {
+      console.error("[v0] Groq API error:", {
+        message: groqError?.message,
+        status: groqError?.status,
+        error: groqError,
+      })
+      return NextResponse.json(
+        { error: `Groq API error: ${groqError?.message || "Unknown error"}` },
+        { status: groqError?.status || 500 }
+      )
+    }
 
     const text = response.choices[0]?.message?.content || ""
 
-    console.log("[v0] Generated response:", text.substring(0, 100))
+    if (!text) {
+      console.warn("[v0] Groq returned empty response")
+      return NextResponse.json(
+        { error: "Empty response from Groq" },
+        { status: 500 }
+      )
+    }
+
+    console.log("[v0] Chat API: successfully generated response, length:", text.length)
 
     return NextResponse.json({
       content: text,
     })
   } catch (error) {
-    console.error("[Chat API Error]", error)
+    console.error("[v0] Unexpected error in chat API:", error)
     const errorMessage =
       error instanceof Error ? error.message : "An unexpected error occurred"
     return NextResponse.json(
