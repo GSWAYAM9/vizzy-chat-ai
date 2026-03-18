@@ -8,7 +8,9 @@ const nextConfig = {
   reactStrictMode: true,
   turbopack: {
     root: __dirname,
-    resolveAlias: {},
+    resolveAlias: {
+      '@': __dirname,
+    },
   },
   // Optimize images
   images: {

@@ -1,5 +1,9 @@
 {
   "buildCommand": "pnpm run build",
   "devCommand": "pnpm dev",
-  "installCommand": "pnpm install"
+  "installCommand": "pnpm install",
+  "env": {
+    "TURBOPACK_ROOT": "/vercel/share/v0-project"
+  }
 }
+
