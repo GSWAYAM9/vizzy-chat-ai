@@ -53,11 +53,13 @@ export function ImageGallery({ aspectRatioFilter, showFavorites = false }: Image
         : galleryData.results
       setImages(filtered)
       setUseLocalCache(false)
+      console.log("[v0] Loaded", filtered.length, "images from Supabase backend")
     } 
     // Fallback to local cache if no backend data or empty results
     else if (galleryData !== undefined) {
       console.log("[v0] No backend gallery data, using local cache")
       const cached = imageCache.getAll()
+      console.log("[v0] Found", cached.length, "images in local cache")
       const filtered = aspectRatioFilter
         ? cached.filter((img: GeneratedImage) => img.aspect_ratio === filter)
         : cached
@@ -68,6 +70,7 @@ export function ImageGallery({ aspectRatioFilter, showFavorites = false }: Image
         setImages(filtered)
       }
       setUseLocalCache(true)
+      console.log("[v0] Displaying', filtered.length, 'images from cache")
     }
   }, [galleryData, filter, aspectRatioFilter, showFavorites])
 

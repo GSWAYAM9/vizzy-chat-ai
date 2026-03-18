@@ -442,6 +442,8 @@ export function VizzyChat() {
             is_favorited: false,
           })
         })
+        console.log("[v0] Saved", data.images.length, "images to local cache")
+        console.log("[v0] Total cached images:", imageCache.getAll().length)
 
         // Analyze the generated image
         if (data.images.length > 0 && refinedPrompt) {

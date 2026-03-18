@@ -30,6 +30,7 @@ export const imageCache = {
       filtered.unshift(image)
       // Keep only last 100 images
       localStorage.setItem(CACHE_KEY, JSON.stringify(filtered.slice(0, 100)))
+      console.log("[v0] Image saved to cache. Total cached:", filtered.slice(0, 100).length)
     } catch (error) {
       console.error('[v0] Error saving to image cache:', error)
     }
