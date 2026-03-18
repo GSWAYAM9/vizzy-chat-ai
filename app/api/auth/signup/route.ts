@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql, isNeonConfigured } from '@/lib/neon-client'
 import * as bcrypt from 'bcryptjs'
+import { generateVerificationToken, sendVerificationEmail } from '@/lib/email-service'
 
 async function ensureTablesExist() {
   try {
@@ -32,11 +33,14 @@ async function ensureTablesExist() {
         name VARCHAR(255),
         password_hash VARCHAR(255) NOT NULL,
         avatar_url TEXT,
+        email_verified BOOLEAN DEFAULT FALSE,
+        email_verification_token VARCHAR(255),
+        email_verified_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
-    console.log('[v0] ✓ Users table created with columns: id, email, name, password_hash, avatar_url, created_at, updated_at')
+    console.log('[v0] ✓ Users table created with columns: id, email, name, password_hash, avatar_url, email_verified, email_verification_token, email_verified_at, created_at, updated_at')
     
     // RECREATE images table
     console.log('[v0] CREATING images table...')
@@ -93,12 +97,13 @@ export async function POST(request: NextRequest) {
 
     // Hash password
     const passwordHash = await bcrypt.hash(password, 10)
+    const verificationToken = generateVerificationToken()
 
     // Create user
     try {
       const result = await sql`
-        INSERT INTO users (email, name, password_hash)
-        VALUES (${email}, ${name || null}, ${passwordHash})
+        INSERT INTO users (email, name, password_hash, email_verification_token)
+        VALUES (${email}, ${name || null}, ${passwordHash}, ${verificationToken})
         RETURNING id, email, name
       `
 
@@ -109,15 +114,22 @@ export async function POST(request: NextRequest) {
       const user = result[0]
       const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64')
 
+      // Send verification email
+      console.log('[v0] Sending verification email to:', email)
+      await sendVerificationEmail(email, verificationToken, name)
+
       console.log('[v0] User signed up:', user.id)
+      console.log('[v0] Email verification required. User must verify email at:', email)
 
       return NextResponse.json({
         user: {
           id: user.id,
           email: user.email,
           name: user.name,
+          email_verified: false,
         },
         token,
+        message: 'Account created successfully. Please check your email to verify your account.',
       }, { status: 201 })
     } catch (insertError: any) {
       console.error('[v0] Insert error:', insertError)
@@ -129,24 +141,30 @@ export async function POST(request: NextRequest) {
           await sql`DROP TABLE IF EXISTS users CASCADE`
           await ensureTablesExist()
           
-          // Retry insert
+          // Retry insert with verification token
           const passwordHash = await bcrypt.hash(password, 10)
+          const verificationToken = generateVerificationToken()
           const result = await sql`
-            INSERT INTO users (email, name, password_hash)
-            VALUES (${email}, ${name || null}, ${passwordHash})
+            INSERT INTO users (email, name, password_hash, email_verification_token)
+            VALUES (${email}, ${name || null}, ${passwordHash}, ${verificationToken})
             RETURNING id, email, name
           `
 
           const user = result[0]
           const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64')
 
+          // Send verification email
+          await sendVerificationEmail(email, verificationToken, name)
+
           return NextResponse.json({
             user: {
               id: user.id,
               email: user.email,
               name: user.name,
+              email_verified: false,
             },
             token,
+            message: 'Account created successfully. Please check your email to verify your account.',
           }, { status: 201 })
         } catch (retryError) {
           console.error('[v0] Retry failed:', retryError)
