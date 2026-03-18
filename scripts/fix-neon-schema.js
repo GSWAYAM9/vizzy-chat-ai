@@ -16,13 +16,15 @@ async function fixDatabaseSchema() {
     console.log('[v0] Starting database schema fix...');
 
     // Step 1: Drop and recreate users table to ensure correct schema
+    console.log('[v0] Dropping old images table if exists...');
+    await sql`DROP TABLE IF EXISTS images CASCADE`;
+
     console.log('[v0] Dropping old users table if exists...');
-    await sql('DROP TABLE IF EXISTS images CASCADE');
-    await sql('DROP TABLE IF EXISTS users CASCADE');
+    await sql`DROP TABLE IF EXISTS users CASCADE`;
 
     // Step 2: Create fresh users table with all required columns
     console.log('[v0] Creating users table with correct schema...');
-    await sql(`
+    await sql`
       CREATE TABLE users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -32,12 +34,12 @@ async function fixDatabaseSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `);
+    `;
     console.log('[v0] Users table created successfully');
 
     // Step 3: Create images table
     console.log('[v0] Creating images table with correct schema...');
-    await sql(`
+    await sql`
       CREATE TABLE images (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -50,14 +52,14 @@ async function fixDatabaseSchema() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `);
+    `;
     console.log('[v0] Images table created successfully');
 
     // Step 4: Create indexes for better performance
     console.log('[v0] Creating indexes...');
-    await sql('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)');
-    await sql('CREATE INDEX IF NOT EXISTS idx_images_user_id ON images(user_id)');
-    await sql('CREATE INDEX IF NOT EXISTS idx_images_created_at ON images(created_at DESC)');
+    await sql`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_images_user_id ON images(user_id)`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_images_created_at ON images(created_at DESC)`;
     console.log('[v0] Indexes created successfully');
 
     console.log('[v0] ✓ Database schema fix completed successfully!');

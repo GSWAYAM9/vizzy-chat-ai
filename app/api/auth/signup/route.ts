@@ -4,42 +4,20 @@ import * as bcrypt from 'bcryptjs'
 
 async function ensureTablesExist() {
   try {
-    console.log('[v0] Ensuring database tables exist with correct schema...')
+    console.log('[v0] Ensuring database tables...')
     
-    // Try to add all required columns to users table if it exists
+    // Drop tables to ensure clean schema
     try {
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
-    } catch (e) { /* ignore if column exists */ }
-    
-    try {
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE`
-    } catch (e) { /* ignore if column exists */ }
-    
-    try {
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255)`
-    } catch (e) { /* ignore if column exists */ }
-    
-    try {
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) NOT NULL`
-    } catch (e) { /* ignore if column exists */ }
-    
-    try {
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT`
-    } catch (e) { /* ignore if column exists */ }
-    
-    try {
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
-    } catch (e) { /* ignore if column exists */ }
-    
-    try {
-      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
-    } catch (e) { /* ignore if column exists */ }
-    
-    console.log('[v0] Added missing columns to users table')
+      await sql`DROP TABLE IF EXISTS images CASCADE`
+      await sql`DROP TABLE IF EXISTS users CASCADE`
+      console.log('[v0] Dropped existing tables')
+    } catch (dropErr) {
+      console.log('[v0] Drop tables (first attempt):', dropErr)
+    }
 
-    // Ensure users table exists with correct full schema
+    // Create fresh users table
     await sql`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         email VARCHAR(255) UNIQUE NOT NULL,
         name VARCHAR(255),
@@ -49,11 +27,11 @@ async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
-    console.log('[v0] Users table ensured')
+    console.log('[v0] Users table created')
     
-    // Ensure images table exists with correct schema
+    // Create images table
     await sql`
-      CREATE TABLE IF NOT EXISTS images (
+      CREATE TABLE images (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         url TEXT NOT NULL,
@@ -66,47 +44,11 @@ async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
-    console.log('[v0] Images table ensured')
+    console.log('[v0] Images table created')
     
   } catch (error) {
     console.error('[v0] Error ensuring tables:', error)
-    // One last resort: drop and recreate everything
-    try {
-      console.log('[v0] Attempting full table recovery by dropping and recreating...')
-      await sql`DROP TABLE IF EXISTS images CASCADE`
-      await sql`DROP TABLE IF EXISTS users CASCADE`
-      
-      await sql`
-        CREATE TABLE users (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          email VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255),
-          password_hash VARCHAR(255) NOT NULL,
-          avatar_url TEXT,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `
-      
-      await sql`
-        CREATE TABLE images (
-          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          url TEXT NOT NULL,
-          prompt TEXT NOT NULL,
-          aspect_ratio VARCHAR(20) DEFAULT '1:1',
-          seed INTEGER,
-          is_favorited BOOLEAN DEFAULT FALSE,
-          likes_count INTEGER DEFAULT 0,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `
-      console.log('[v0] Tables successfully recovered via full recreation')
-    } catch (recoveryError) {
-      console.error('[v0] Full recovery failed:', recoveryError)
-      throw recoveryError
-    }
+    throw error
   }
 }
 
