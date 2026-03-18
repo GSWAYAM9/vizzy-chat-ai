@@ -4,18 +4,27 @@ import * as bcrypt from 'bcryptjs'
 
 async function ensureTablesExist() {
   try {
-    console.log('[v0] Ensuring database tables...')
+    console.log('[v0] ===== STARTING TABLE RECREATION =====')
     
-    // Drop tables to ensure clean schema
+    // FORCE DROP everything first
+    console.log('[v0] DROPPING images table...')
     try {
       await sql`DROP TABLE IF EXISTS images CASCADE`
+      console.log('[v0] ✓ Images table dropped')
+    } catch (e: any) {
+      console.log('[v0] Images drop note:', e?.message)
+    }
+    
+    console.log('[v0] DROPPING users table...')
+    try {
       await sql`DROP TABLE IF EXISTS users CASCADE`
-      console.log('[v0] Dropped existing tables')
-    } catch (dropErr) {
-      console.log('[v0] Drop tables (first attempt):', dropErr)
+      console.log('[v0] ✓ Users table dropped')
+    } catch (e: any) {
+      console.log('[v0] Users drop note:', e?.message)
     }
 
-    // Create fresh users table
+    // RECREATE users table with ALL columns
+    console.log('[v0] CREATING users table with all required columns...')
     await sql`
       CREATE TABLE users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,9 +36,10 @@ async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
-    console.log('[v0] Users table created')
+    console.log('[v0] ✓ Users table created with columns: id, email, name, password_hash, avatar_url, created_at, updated_at')
     
-    // Create images table
+    // RECREATE images table
+    console.log('[v0] CREATING images table...')
     await sql`
       CREATE TABLE images (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,10 +54,11 @@ async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
-    console.log('[v0] Images table created')
+    console.log('[v0] ✓ Images table created')
+    console.log('[v0] ===== TABLE RECREATION COMPLETE =====')
     
   } catch (error) {
-    console.error('[v0] Error ensuring tables:', error)
+    console.error('[v0] CRITICAL: Error in ensureTablesExist:', error)
     throw error
   }
 }

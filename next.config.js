@@ -1,10 +1,13 @@
 /** @type {import('next').NextConfig} */
-const path = require('path');
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig = {
   reactStrictMode: true,
   turbopack: {
-    root: path.resolve(__dirname),
+    root: __dirname,
     resolveAlias: {},
   },
   // Optimize images
