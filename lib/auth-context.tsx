@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Session, User as SupabaseUser } from '@supabase/supabase-js'
-import { supabase } from './supabase-client'
+import { supabase, isSupabaseConfigured } from './supabase-client'
 
 interface User extends SupabaseUser {
   name?: string
@@ -13,6 +13,7 @@ interface AuthContextType {
   user: User | null
   session: Session | null
   isLoading: boolean
+  isConfigured: boolean
   signUp: (email: string, password: string, name?: string) => Promise<void>
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
@@ -27,6 +28,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Skip if Supabase is not configured
+    if (!isSupabaseConfigured || !supabase) {
+      setIsLoading(false)
+      return
+    }
+
     // Check active sessions
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
@@ -46,6 +53,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signUp = async (email: string, password: string, name?: string) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.')
+    }
     const { error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
 
@@ -57,20 +67,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signIn = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.')
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
   }
 
   const signOut = async () => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured.')
+    }
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
 
   const signInWithGoogle = async () => {
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.')
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
       },
     })
     if (error) throw error
@@ -82,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         session,
         isLoading,
+        isConfigured: isSupabaseConfigured,
         signUp,
         signIn,
         signOut,
