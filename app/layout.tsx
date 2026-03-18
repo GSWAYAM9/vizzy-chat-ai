@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
-import { AuthProvider } from '@/lib/auth-context'
+import { AuthProvider } from '@/lib/neon-auth-context'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 

@@ -1,63 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-// Create Supabase client
-const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null
+import { sql, isNeonConfigured } from '@/lib/neon-client'
 
 export async function GET(request: NextRequest) {
   try {
-    if (!supabase) {
-      console.log('[v0] Supabase not configured, returning empty gallery')
+    if (!isNeonConfigured || !sql) {
+      console.log('[v0] Neon database not configured, using local cache')
       return NextResponse.json({ results: [] }, { status: 200 })
     }
 
-    // Get the user's session from Authorization header
+    // Get the user ID from Authorization header (for now, use a simple bearer token)
     const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
+    const userId = authHeader?.replace('Bearer ', '')
 
-    if (!token) {
-      console.log('[v0] No auth token provided, using local cache')
+    if (!userId) {
+      console.log('[v0] No user ID provided, using local cache')
       return NextResponse.json({ results: [] }, { status: 200 })
     }
 
-    console.log('[v0] Fetching images from Supabase for authenticated user')
+    console.log('[v0] Fetching images from Neon for user:', userId)
 
-    // Set a timeout for the auth check (3 seconds max)
-    const authPromise = supabase.auth.getUser(token)
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Auth timeout')), 3000)
-    )
-
-    let user
-    try {
-      const { data, error: userError } = await Promise.race([
-        authPromise,
-        timeoutPromise as any,
-      ]) as any
-
-      if (userError || !data?.user) {
-        console.log('[v0] User authentication failed or timed out, using local cache')
-        return NextResponse.json({ results: [] }, { status: 200 })
-      }
-      user = data.user
-    } catch (timeoutErr) {
-      console.log('[v0] Auth check timed out, using local cache')
-      return NextResponse.json({ results: [] }, { status: 200 })
-    }
-
-    console.log('[v0] Fetching images for user:', user.id)
-
-    // Fetch images for this user from Supabase with timeout
-    const imagesPromise = supabase
-      .from('images')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+    // Fetch images for this user from Neon with timeout
+    const imagesPromise = sql`
+      SELECT id, url, prompt, aspect_ratio, seed, is_favorited, likes_count, created_at, updated_at
+      FROM images
+      WHERE user_id = ${userId}::uuid
+      ORDER BY created_at DESC
+      LIMIT 100
+    `
 
     const imagesTimeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('Query timeout')), 5000)
@@ -65,22 +34,16 @@ export async function GET(request: NextRequest) {
 
     let images
     try {
-      const result = await Promise.race([
+      images = await Promise.race([
         imagesPromise,
         imagesTimeoutPromise as any,
-      ]) as any
-
-      if (result.error) {
-        console.error('[v0] Supabase query error:', result.error)
-        return NextResponse.json({ results: [] }, { status: 200 })
-      }
-      images = result.data
+      ]) as any[]
     } catch (timeoutErr) {
       console.log('[v0] Images query timed out, using local cache')
       return NextResponse.json({ results: [] }, { status: 200 })
     }
 
-    console.log('[v0] Successfully retrieved', images?.length || 0, 'images from Supabase')
+    console.log('[v0] Successfully retrieved', images?.length || 0, 'images from Neon')
 
     // Transform data to match frontend expectations
     const results = (images || []).map((img: any) => ({
@@ -91,24 +54,7 @@ export async function GET(request: NextRequest) {
       aspect_ratio: img.aspect_ratio || '1:1',
       created_at: img.created_at,
       is_favorited: img.is_favorited || false,
-    }))
-
-    return NextResponse.json({ results }, { status: 200 })
-  } catch (error) {
-    console.error('[v0] Unexpected error in gallery GET:', error)
-    return NextResponse.json({ results: [] }, { status: 200 })
-  }
-}
-
-    // Transform data to match frontend expectations
-    const results = (images || []).map((img: any) => ({
-      id: img.id,
-      image_url: img.url,
-      thumbnail_url: img.url,
-      prompt: img.prompt,
-      aspect_ratio: img.aspect_ratio || '1:1',
-      created_at: img.created_at,
-      is_favorited: img.is_favorited || false,
+      likes_count: img.likes_count || 0,
     }))
 
     return NextResponse.json({ results }, { status: 200 })
@@ -120,57 +66,51 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    if (!supabase) {
-      console.log('[v0] Supabase not configured, skipping gallery save')
+    if (!isNeonConfigured || !sql) {
+      console.log('[v0] Neon database not configured, skipping gallery save')
       return NextResponse.json({ message: 'Image generated successfully (gallery unavailable)' }, { status: 201 })
     }
 
-    // Get the user's session from Authorization header
     const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
+    const userId = authHeader?.replace('Bearer ', '')
 
-    if (!token) {
-      console.log('[v0] No auth token provided for gallery save')
+    if (!userId) {
+      console.log('[v0] No user ID provided for gallery save')
       return NextResponse.json({ message: 'Image generated successfully' }, { status: 201 })
     }
 
     const body = await request.json()
 
-    // Get current user from token
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
-    
-    if (userError || !user) {
-      console.log('[v0] User authentication failed for gallery save')
-      return NextResponse.json({ message: 'Image generated successfully' }, { status: 201 })
-    }
+    console.log('[v0] Saving images to Neon for user:', userId)
 
-    console.log('[v0] Saving images to Supabase for user:', user.id)
-
-    // Save each image to Supabase
+    // Prepare images for bulk insert
     const imagesToSave = (Array.isArray(body.images) ? body.images : [body]).map((img: any) => ({
-      user_id: user.id,
+      user_id: userId,
       url: img.url || img.image_url,
       prompt: body.prompt || img.prompt,
       aspect_ratio: body.aspect_ratio || '1:1',
-      seed: img.seed,
+      seed: img.seed || null,
     }))
 
-    const { data: savedImages, error: saveError } = await supabase
-      .from('images')
-      .insert(imagesToSave)
-      .select()
+    try {
+      // Insert images into Neon
+      const result = await sql`
+        INSERT INTO images (user_id, url, prompt, aspect_ratio, seed)
+        VALUES 
+        ${sql(imagesToSave.map(img => [img.user_id, img.url, img.prompt, img.aspect_ratio, img.seed]))}
+        RETURNING id, url, prompt, created_at
+      `
 
-    if (saveError) {
-      console.warn('[v0] Supabase save warning:', saveError)
+      console.log('[v0] Successfully saved', result?.length || 0, 'images to Neon')
+
+      return NextResponse.json({ 
+        message: 'Images saved successfully',
+        saved: result?.length || 0,
+      }, { status: 201 })
+    } catch (dbError) {
+      console.warn('[v0] Database save error:', dbError)
       return NextResponse.json({ message: 'Image generated (gallery save failed)', success: true }, { status: 201 })
     }
-
-    console.log('[v0] Successfully saved', savedImages?.length || 0, 'images to Supabase')
-
-    return NextResponse.json({ 
-      message: 'Images saved successfully',
-      saved: savedImages?.length || 0,
-    }, { status: 201 })
   } catch (error) {
     console.error('[v0] Error in gallery POST:', error)
     return NextResponse.json({ message: 'Image generated (gallery unavailable)' }, { status: 201 })
