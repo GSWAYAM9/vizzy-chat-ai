@@ -1,11 +1,21 @@
 "use client"
 
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { SetupRequired } from "@/components/setup-required"
 import { VizzyChat } from "@/components/vizzy-chat"
 
 export default function Home() {
-  const { isLoading, isConfigured } = useAuth()
+  const router = useRouter()
+  const { isLoading, isConfigured, user } = useAuth()
+
+  useEffect(() => {
+    // Redirect to login if Supabase is configured but user is not authenticated
+    if (!isLoading && isConfigured && !user) {
+      router.push("/auth/login")
+    }
+  }, [isLoading, isConfigured, user, router])
 
   if (isLoading) {
     return (
@@ -20,6 +30,10 @@ export default function Home() {
 
   if (!isConfigured) {
     return <SetupRequired />
+  }
+
+  if (!user) {
+    return null // Redirecting to login
   }
 
   return (
