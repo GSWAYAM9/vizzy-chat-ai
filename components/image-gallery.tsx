@@ -6,6 +6,7 @@ import { Heart, Trash2, Download, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { imageCache } from "@/lib/image-cache"
+import { useAuth } from "@/lib/auth-context"
 
 interface GeneratedImage {
   id: string
@@ -24,13 +25,23 @@ interface ImageGalleryProps {
 }
 
 export function ImageGallery({ aspectRatioFilter, showFavorites = false }: ImageGalleryProps) {
+  const { session } = useAuth()
   const [filter, setFilter] = useState(aspectRatioFilter)
   const [images, setImages] = useState<GeneratedImage[]>([])
   const [useLocalCache, setUseLocalCache] = useState(false)
 
+  const fetcher = async (url: string) => {
+    const response = await fetch(url, {
+      headers: session?.access_token ? {
+        'Authorization': `Bearer ${session.access_token}`,
+      } : {},
+    })
+    return response.json()
+  }
+
   const { data: galleryData, isLoading, error, mutate } = useSWR(
-    showFavorites ? "/api/gallery/images/favorites" : "/api/gallery/images",
-    (url: string) => fetch(url).then((r) => r.json()),
+    session?.access_token ? (showFavorites ? "/api/gallery/images/favorites" : "/api/gallery/images") : null,
+    fetcher,
     { revalidateOnFocus: false }
   )
 

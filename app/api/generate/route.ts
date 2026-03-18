@@ -108,29 +108,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Try to save images to gallery via Supabase backend
-    try {
-      const saveRequest = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/api/v1/images/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          images: images.map((img: { url: string; seed?: number }) => ({
-            url: img.url,
+    // Try to save images to gallery via API
+    const authHeader = request.headers.get('authorization')
+    if (authHeader && images.length > 0) {
+      try {
+        const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
+        const host = request.headers.get('host') || 'localhost:3000'
+        const saveUrl = `${protocol}://${host}/api/gallery/images`
+        
+        console.log("[v0] Saving", images.length, "images to gallery at", saveUrl)
+
+        const saveRequest = await fetch(saveUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': authHeader,
+          },
+          body: JSON.stringify({
+            images,
             prompt: refinedPrompt.trim(),
-            seed: img.seed,
-          })),
-        }),
-      })
-      
-      if (saveRequest.ok) {
-        console.log("[v0] Images saved to gallery")
-      } else {
-        console.log("[v0] Gallery save failed, but image generation succeeded")
+            aspect_ratio,
+          }),
+        })
+        
+        if (saveRequest.ok) {
+          const saveResponse = await saveRequest.json()
+          console.log("[v0] Images saved to gallery successfully:", saveResponse)
+        } else {
+          const errorText = await saveRequest.text()
+          console.log("[v0] Gallery save returned status", saveRequest.status, ":", errorText)
+        }
+      } catch (error) {
+        console.log("[v0] Could not save to gallery:", error instanceof Error ? error.message : String(error))
       }
-    } catch (error) {
-      console.log("[v0] Could not reach backend for gallery save:", error)
+    } else {
+      console.log("[v0] No auth header or no images, skipping gallery save")
     }
 
     return NextResponse.json({
