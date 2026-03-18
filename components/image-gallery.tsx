@@ -47,15 +47,15 @@ export function ImageGallery({ aspectRatioFilter, showFavorites = false }: Image
 
   useEffect(() => {
     // Try to use backend data first
-    if (galleryData?.results) {
+    if (galleryData?.results && galleryData.results.length > 0) {
       const filtered = aspectRatioFilter
         ? galleryData.results.filter((img: GeneratedImage) => img.aspect_ratio === filter)
         : galleryData.results
       setImages(filtered)
       setUseLocalCache(false)
     } 
-    // Fallback to local cache if no backend data
-    else if (galleryData && !galleryData.results) {
+    // Fallback to local cache if no backend data or empty results
+    else if (galleryData !== undefined) {
       console.log("[v0] No backend gallery data, using local cache")
       const cached = imageCache.getAll()
       const filtered = aspectRatioFilter
