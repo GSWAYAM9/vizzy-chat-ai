@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Skip if Supabase is not configured
     if (!isSupabaseConfigured || !supabase) {
+      console.log("[v0] Supabase not configured, skipping session check")
       setIsLoading(false)
       return
     }
@@ -38,6 +39,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
       setUser(session?.user as User || null)
+      setIsLoading(false)
+    }).catch((error) => {
+      console.error("[v0] Error getting session:", error)
       setIsLoading(false)
     })
 

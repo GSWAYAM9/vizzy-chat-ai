@@ -209,7 +209,7 @@ function generateAssistantText(numImages: number, prompt: string): string {
 
 export function VizzyChat() {
   const router = useRouter()
-  const { user, signOut } = useAuth()
+  const { user, session, signOut } = useAuth()
   const [messages, setMessages] = useState<ChatMessageType[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -374,46 +374,6 @@ export function VizzyChat() {
 
         const assistantText = generateAssistantText(data.images.length, refinedPrompt)
 
-        // Save generated images to backend
-        const savedImages = []
-        for (const img of data.images) {
-          try {
-            // Generate a temporary token/user ID if not exists
-            let token = localStorage.getItem('token')
-            if (!token) {
-              token = `user_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-              localStorage.setItem('token', token)
-              console.log("[v0] Generated temporary token:", token)
-            }
-
-            // Save image to backend history
-            const saveResponse = await fetch("/api/gallery/images/", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                image_url: img.url,
-                prompt: refinedPrompt,
-                aspect_ratio: aspectRatio,
-                seed: img.seed,
-                model: "runware"
-              })
-            })
-
-            if (saveResponse.ok) {
-              const savedImage = await saveResponse.json()
-              savedImages.push(savedImage)
-              console.log("[v0] Image saved to history:", savedImage.id)
-            } else {
-              console.error("[v0] Failed to save image to history:", saveResponse.status)
-            }
-          } catch (err) {
-            console.error("[v0] Error saving image to history:", err)
-          }
-        }
-
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantMessage.id
@@ -442,6 +402,8 @@ export function VizzyChat() {
             is_favorited: false,
           })
         })
+        console.log("[v0] Saved", data.images.length, "images to local cache")
+        console.log("[v0] Total cached images:", imageCache.getAll().length)
 
         // Analyze the generated image
         if (data.images.length > 0 && refinedPrompt) {

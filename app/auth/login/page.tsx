@@ -1,22 +1,35 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { AlertCircle } from "lucide-react"
 
 export default function LoginPage() {
   const router = useRouter()
-  const { signIn, signInWithGoogle } = useAuth()
+  const { signIn, signInWithGoogle, isConfigured } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
 
+  useEffect(() => {
+    if (!isConfigured) {
+      setError("Supabase is not configured yet. Please set up your Supabase credentials in the environment variables.")
+    }
+  }, [isConfigured])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!isConfigured) {
+      setError("Cannot sign in: Supabase is not configured. Please contact the administrator to set up authentication.")
+      return
+    }
+
     setError("")
     setIsLoading(true)
 
@@ -24,17 +37,26 @@ export default function LoginPage() {
       await signIn(email, password)
       router.push("/")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed")
+      const errorMessage = err instanceof Error ? err.message : "Login failed"
+      setError(errorMessage)
+      console.error("[v0] Login error:", errorMessage)
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
+    if (!isConfigured) {
+      setError("Cannot sign in: Supabase is not configured. Please contact the administrator to set up authentication.")
+      return
+    }
+
     try {
       await signInWithGoogle()
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed")
+      const errorMessage = err instanceof Error ? err.message : "Google sign-in failed"
+      setError(errorMessage)
+      console.error("[v0] Google sign-in error:", errorMessage)
     }
   }
 
@@ -46,8 +68,23 @@ export default function LoginPage() {
           <CardDescription>Create stunning AI images with your account</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {!isConfigured && (
+            <div className="p-3 bg-amber-900/20 border border-amber-900/50 rounded flex gap-2">
+              <AlertCircle className="size-5 text-amber-200 flex-shrink-0 mt-0.5" />
+              <div className="text-sm text-amber-200">
+                <p className="font-medium mb-1">Setup Required</p>
+                <p>Supabase authentication is not configured. To enable sign in, please add these environment variables in Settings → Vars:</p>
+                <code className="text-xs bg-black/30 px-2 py-1 rounded block mt-2 space-y-1">
+                  <div>NEXT_PUBLIC_SUPABASE_URL</div>
+                  <div>NEXT_PUBLIC_SUPABASE_ANON_KEY</div>
+                </code>
+                <p className="mt-2 text-xs">Once added, refresh this page and you'll be able to sign in.</p>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+            {error && isConfigured && (
               <div className="p-3 bg-red-900/20 border border-red-900/50 rounded text-red-200 text-sm">
                 {error}
               </div>
@@ -63,7 +100,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={isLoading}
+                disabled={isLoading || !isConfigured}
               />
             </div>
             <div className="space-y-2">
@@ -77,10 +114,14 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={isLoading}
+                disabled={isLoading || !isConfigured}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isLoading || !isConfigured}
+            >
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
@@ -99,6 +140,7 @@ export default function LoginPage() {
             variant="outline"
             className="w-full"
             onClick={handleGoogleSignIn}
+            disabled={!isConfigured}
           >
             Sign in with Google
           </Button>

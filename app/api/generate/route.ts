@@ -108,17 +108,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Try to save images to gallery via API
+    // Try to save images to gallery via API (background task, don't block image generation)
     const authHeader = request.headers.get('authorization')
     if (authHeader && images.length > 0) {
+      // Fire and forget - don't await or block the response
       try {
         const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http'
         const host = request.headers.get('host') || 'localhost:3000'
         const saveUrl = `${protocol}://${host}/api/gallery/images`
         
-        console.log("[v0] Saving", images.length, "images to gallery at", saveUrl)
+        console.log("[v0] Attempting to save", images.length, "images to gallery")
 
-        const saveRequest = await fetch(saveUrl, {
+        fetch(saveUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -129,17 +130,13 @@ export async function POST(request: NextRequest) {
             prompt: refinedPrompt.trim(),
             aspect_ratio,
           }),
+        }).catch((error) => {
+          // Silently ignore gallery save errors - images are already cached locally
+          console.log("[v0] Background gallery save failed (this is ok, local cache will be used):", error instanceof Error ? error.message : String(error))
         })
-        
-        if (saveRequest.ok) {
-          const saveResponse = await saveRequest.json()
-          console.log("[v0] Images saved to gallery successfully:", saveResponse)
-        } else {
-          const errorText = await saveRequest.text()
-          console.log("[v0] Gallery save returned status", saveRequest.status, ":", errorText)
-        }
       } catch (error) {
-        console.log("[v0] Could not save to gallery:", error instanceof Error ? error.message : String(error))
+        // Ignore synchronous errors too
+        console.log("[v0] Could not initiate gallery save:", error instanceof Error ? error.message : String(error))
       }
     } else {
       console.log("[v0] No auth header or no images, skipping gallery save")
