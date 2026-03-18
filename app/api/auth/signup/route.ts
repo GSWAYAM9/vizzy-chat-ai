@@ -4,18 +4,40 @@ import * as bcrypt from 'bcryptjs'
 
 async function ensureTablesExist() {
   try {
-    console.log('[v0] Ensuring database tables exist...')
+    console.log('[v0] Ensuring database tables exist with correct schema...')
     
-    // First, try to add the missing name column if the table exists but doesn't have it
+    // Try to add all required columns to users table if it exists
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
+    } catch (e) { /* ignore if column exists */ }
+    
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) UNIQUE`
+    } catch (e) { /* ignore if column exists */ }
+    
     try {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255)`
-      console.log('[v0] Added name column to users table (if missing)')
-    } catch (alterError: any) {
-      // If alter fails, the table might not exist or there's another issue
-      console.log('[v0] Alter table attempt (may be normal if table doesn\'t exist yet):', alterError?.message)
-    }
+    } catch (e) { /* ignore if column exists */ }
+    
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255) NOT NULL`
+    } catch (e) { /* ignore if column exists */ }
+    
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT`
+    } catch (e) { /* ignore if column exists */ }
+    
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
+    } catch (e) { /* ignore if column exists */ }
+    
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`
+    } catch (e) { /* ignore if column exists */ }
+    
+    console.log('[v0] Added missing columns to users table')
 
-    // Ensure users table exists with correct schema
+    // Ensure users table exists with correct full schema
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -27,7 +49,7 @@ async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
-    console.log('[v0] Users table created or already exists')
+    console.log('[v0] Users table ensured')
     
     // Ensure images table exists with correct schema
     await sql`
@@ -44,13 +66,13 @@ async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
-    console.log('[v0] Images table created or already exists')
+    console.log('[v0] Images table ensured')
     
   } catch (error) {
     console.error('[v0] Error ensuring tables:', error)
-    // Try to recover by dropping and recreating
+    // One last resort: drop and recreate everything
     try {
-      console.log('[v0] Attempting to recover by recreating tables...')
+      console.log('[v0] Attempting full table recovery by dropping and recreating...')
       await sql`DROP TABLE IF EXISTS images CASCADE`
       await sql`DROP TABLE IF EXISTS users CASCADE`
       
@@ -80,9 +102,9 @@ async function ensureTablesExist() {
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `
-      console.log('[v0] Tables successfully recovered')
+      console.log('[v0] Tables successfully recovered via full recreation')
     } catch (recoveryError) {
-      console.error('[v0] Table recovery failed:', recoveryError)
+      console.error('[v0] Full recovery failed:', recoveryError)
       throw recoveryError
     }
   }
