@@ -6,7 +6,7 @@ import { Heart, Trash2, Download, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { imageCache } from "@/lib/image-cache"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/neon-auth-context"
 
 interface GeneratedImage {
   id: string

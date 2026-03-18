@@ -1,7 +1,7 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/neon-auth-context"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
