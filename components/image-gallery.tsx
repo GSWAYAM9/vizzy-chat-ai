@@ -5,16 +5,17 @@ import useSWR from "swr"
 import { Heart, Trash2, Download, Copy } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { imageCache } from "@/lib/image-cache"
 
 interface GeneratedImage {
   id: string
   image_url: string
-  thumbnail_url: string
+  thumbnail_url?: string
   prompt: string
   aspect_ratio: string
   created_at: string
   is_favorited: boolean
-  likes_count: number
+  likes_count?: number
 }
 
 interface ImageGalleryProps {
@@ -25,6 +26,7 @@ interface ImageGalleryProps {
 export function ImageGallery({ aspectRatioFilter, showFavorites = false }: ImageGalleryProps) {
   const [filter, setFilter] = useState(aspectRatioFilter)
   const [images, setImages] = useState<GeneratedImage[]>([])
+  const [useLocalCache, setUseLocalCache] = useState(false)
 
   const { data: galleryData, isLoading, error, mutate } = useSWR(
     showFavorites ? "/api/gallery/images/favorites" : "/api/gallery/images",
@@ -33,21 +35,60 @@ export function ImageGallery({ aspectRatioFilter, showFavorites = false }: Image
   )
 
   useEffect(() => {
+    // Try to use backend data first
     if (galleryData?.results) {
       const filtered = aspectRatioFilter
         ? galleryData.results.filter((img: GeneratedImage) => img.aspect_ratio === filter)
         : galleryData.results
       setImages(filtered)
+      setUseLocalCache(false)
+    } 
+    // Fallback to local cache if no backend data
+    else if (galleryData && !galleryData.results) {
+      console.log("[v0] No backend gallery data, using local cache")
+      const cached = imageCache.getAll()
+      const filtered = aspectRatioFilter
+        ? cached.filter((img: GeneratedImage) => img.aspect_ratio === filter)
+        : cached
+      
+      if (showFavorites) {
+        setImages(filtered.filter((img: GeneratedImage) => img.is_favorited))
+      } else {
+        setImages(filtered)
+      }
+      setUseLocalCache(true)
     }
-  }, [galleryData, filter, aspectRatioFilter])
+  }, [galleryData, filter, aspectRatioFilter, showFavorites])
 
   const handleToggleFavorite = async (imageId: string) => {
-    try {
-      await fetch(`/api/gallery/images/${imageId}/toggle_favorite/`, { method: "POST" })
-      // Refresh data
-      mutate()
-    } catch (err) {
-      console.error("Failed to toggle favorite", err)
+    if (useLocalCache) {
+      imageCache.toggleFavorite(imageId)
+      setImages((prev) =>
+        prev.map((img) =>
+          img.id === imageId ? { ...img, is_favorited: !img.is_favorited } : img
+        )
+      )
+    } else {
+      try {
+        await fetch(`/api/gallery/images/${imageId}/toggle_favorite/`, { method: "POST" })
+        mutate()
+      } catch (err) {
+        console.error("Failed to toggle favorite", err)
+      }
+    }
+  }
+
+  const handleDelete = async (imageId: string) => {
+    if (useLocalCache) {
+      imageCache.delete(imageId)
+      setImages((prev) => prev.filter((img) => img.id !== imageId))
+    } else {
+      try {
+        await fetch(`/api/gallery/images/${imageId}/`, { method: "DELETE" })
+        mutate()
+      } catch (err) {
+        console.error("Failed to delete image", err)
+      }
     }
   }
 
@@ -68,22 +109,33 @@ export function ImageGallery({ aspectRatioFilter, showFavorites = false }: Image
     }
   }
 
-  if (isLoading) {
+  if (isLoading && !useLocalCache) {
     return <div className="text-center py-8">Loading gallery...</div>
   }
 
-  if (error) {
+  if (error && !useLocalCache) {
     return <div className="text-center py-8 text-red-500">Failed to load gallery</div>
   }
 
   if (images.length === 0) {
-    return <div className="text-center py-8 text-gray-500">No images yet. Start creating!</div>
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        No images yet. Start creating in the chat!
+      </div>
+    )
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Image Gallery</h2>
+        <div>
+          <h2 className="text-2xl font-bold">Image Gallery</h2>
+          {useLocalCache && (
+            <p className="text-sm text-amber-600 mt-1">
+              Displaying local gallery (backend unavailable)
+            </p>
+          )}
+        </div>
         {aspectRatioFilter && (
           <div className="flex gap-2">
             <Badge variant="outline">{filter}</Badge>
@@ -140,16 +192,27 @@ export function ImageGallery({ aspectRatioFilter, showFavorites = false }: Image
                 >
                   <Copy size={16} />
                 </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-white hover:bg-white/20"
+                  onClick={() => handleDelete(image.id)}
+                >
+                  <Trash2 size={16} />
+                </Button>
               </div>
             </div>
 
             {/* Like count badge */}
-            <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-              {image.likes_count} likes
-            </div>
+            {image.likes_count !== undefined && (
+              <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                {image.likes_count} likes
+              </div>
+            )}
           </div>
         ))}
       </div>
     </div>
   )
 }
+
