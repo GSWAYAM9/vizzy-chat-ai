@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signUp = async (email: string, password: string, name?: string) => {
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !supabase) {
       throw new Error('Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.')
     }
     const { error } = await supabase.auth.signUp({ email, password })
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signIn = async (email: string, password: string) => {
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !supabase) {
       throw new Error('Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.')
     }
     const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signOut = async () => {
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !supabase) {
       throw new Error('Supabase is not configured.')
     }
     const { error } = await supabase.auth.signOut()
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithGoogle = async () => {
-    if (!isSupabaseConfigured) {
+    if (!isSupabaseConfigured || !supabase) {
       throw new Error('Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.')
     }
     const { error } = await supabase.auth.signInWithOAuth({
