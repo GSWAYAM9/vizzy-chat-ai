@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Sparkles, Plus, Sun, Moon, Trash2, Clock, LogOut, User } from "lucide-react"
 import { useTheme } from "next-themes"
+import { imageCache } from "@/lib/image-cache"
 import type { ChatMessage as ChatMessageType } from "@/lib/types"
 
 function generateId() {
@@ -426,6 +427,18 @@ export function VizzyChat() {
               : m
           )
         )
+
+        // Save images to local cache for gallery view
+        data.images.forEach((img: { url: string; seed?: number }, index: number) => {
+          imageCache.save({
+            id: `img-${Date.now()}-${index}`,
+            image_url: img.url,
+            prompt: refinedPrompt,
+            aspect_ratio: aspectRatio,
+            created_at: new Date().toISOString(),
+            is_favorited: false,
+          })
+        })
 
         // Analyze the generated image
         if (data.images.length > 0 && refinedPrompt) {
