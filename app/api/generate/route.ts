@@ -108,6 +108,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Try to save images to gallery via Supabase backend
+    try {
+      const saveRequest = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/api/v1/images/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          images: images.map((img: { url: string; seed?: number }) => ({
+            url: img.url,
+            prompt: refinedPrompt.trim(),
+            seed: img.seed,
+          })),
+        }),
+      })
+      
+      if (saveRequest.ok) {
+        console.log("[v0] Images saved to gallery")
+      } else {
+        console.log("[v0] Gallery save failed, but image generation succeeded")
+      }
+    } catch (error) {
+      console.log("[v0] Could not reach backend for gallery save:", error)
+    }
+
     return NextResponse.json({
       images,
       prompt: refinedPrompt.trim(),
