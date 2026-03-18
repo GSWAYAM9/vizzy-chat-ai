@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, lazy } from "react"
+import { ThemeProvider } from "@/components/theme-provider"
 
 const VizzyChat = lazy(() => import("@/components/vizzy-chat").then(mod => ({ default: mod.VizzyChat })))
 
@@ -17,10 +18,18 @@ function LoadingFallback() {
 
 export default function Home() {
   return (
-    <main className="h-dvh w-full overflow-hidden">
-      <Suspense fallback={<LoadingFallback />}>
-        <VizzyChat />
-      </Suspense>
-    </main>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <main className="h-dvh w-full overflow-hidden">
+        <Suspense fallback={<LoadingFallback />}>
+          <VizzyChat />
+        </Suspense>
+      </main>
+    </ThemeProvider>
   )
 }
+
