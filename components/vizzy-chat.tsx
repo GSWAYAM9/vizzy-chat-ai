@@ -209,7 +209,7 @@ function generateAssistantText(numImages: number, prompt: string): string {
 
 export function VizzyChat() {
   const router = useRouter()
-  const { user, signOut } = useAuth()
+  const { user, session, signOut } = useAuth()
   const [messages, setMessages] = useState<ChatMessageType[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
