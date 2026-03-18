@@ -20,6 +20,8 @@ export default function SignupPage() {
   useEffect(() => {
     if (!isConfigured) {
       setError("Supabase is not configured yet. Please set up your Supabase credentials in the environment variables.")
+    } else {
+      setError("")
     }
   }, [isConfigured])
 
@@ -59,11 +61,12 @@ export default function SignupPage() {
               <AlertCircle className="size-5 text-amber-200 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-amber-200">
                 <p className="font-medium mb-1">Setup Required</p>
-                <p>Supabase authentication is not configured. Please set the environment variables:</p>
-                <code className="text-xs bg-black/30 px-2 py-1 rounded block mt-1">
-                  NEXT_PUBLIC_SUPABASE_URL<br />
-                  NEXT_PUBLIC_SUPABASE_ANON_KEY
+                <p>Supabase authentication is not configured. To enable sign up, please add these environment variables in Settings → Vars:</p>
+                <code className="text-xs bg-black/30 px-2 py-1 rounded block mt-2 space-y-1">
+                  <div>NEXT_PUBLIC_SUPABASE_URL</div>
+                  <div>NEXT_PUBLIC_SUPABASE_ANON_KEY</div>
                 </code>
+                <p className="mt-2 text-xs">Once added, refresh this page and you'll be able to sign up.</p>
               </div>
             </div>
           )}
