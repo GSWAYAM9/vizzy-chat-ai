@@ -4,7 +4,18 @@ import * as bcrypt from 'bcryptjs'
 
 async function ensureTablesExist() {
   try {
-    // Try to create users table if it doesn't exist
+    console.log('[v0] Ensuring database tables exist...')
+    
+    // First, try to add the missing name column if the table exists but doesn't have it
+    try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255)`
+      console.log('[v0] Added name column to users table (if missing)')
+    } catch (alterError: any) {
+      // If alter fails, the table might not exist or there's another issue
+      console.log('[v0] Alter table attempt (may be normal if table doesn\'t exist yet):', alterError?.message)
+    }
+
+    // Ensure users table exists with correct schema
     await sql`
       CREATE TABLE IF NOT EXISTS users (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -16,8 +27,9 @@ async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
+    console.log('[v0] Users table created or already exists')
     
-    // Try to create images table if it doesn't exist
+    // Ensure images table exists with correct schema
     await sql`
       CREATE TABLE IF NOT EXISTS images (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -32,10 +44,47 @@ async function ensureTablesExist() {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `
+    console.log('[v0] Images table created or already exists')
     
-    console.log('[v0] Database tables ensured')
   } catch (error) {
     console.error('[v0] Error ensuring tables:', error)
+    // Try to recover by dropping and recreating
+    try {
+      console.log('[v0] Attempting to recover by recreating tables...')
+      await sql`DROP TABLE IF EXISTS images CASCADE`
+      await sql`DROP TABLE IF EXISTS users CASCADE`
+      
+      await sql`
+        CREATE TABLE users (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          email VARCHAR(255) UNIQUE NOT NULL,
+          name VARCHAR(255),
+          password_hash VARCHAR(255) NOT NULL,
+          avatar_url TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `
+      
+      await sql`
+        CREATE TABLE images (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          url TEXT NOT NULL,
+          prompt TEXT NOT NULL,
+          aspect_ratio VARCHAR(20) DEFAULT '1:1',
+          seed INTEGER,
+          is_favorited BOOLEAN DEFAULT FALSE,
+          likes_count INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `
+      console.log('[v0] Tables successfully recovered')
+    } catch (recoveryError) {
+      console.error('[v0] Table recovery failed:', recoveryError)
+      throw recoveryError
+    }
   }
 }
 

@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       const result = await sql`
         INSERT INTO images (user_id, url, prompt, aspect_ratio, seed)
         VALUES 
-        ${sql(imagesToSave.map(img => [img.user_id, img.url, img.prompt, img.aspect_ratio, img.seed]))}
+        ${sql(imagesToSave.map((img: typeof imagesToSave[0]) => [img.user_id, img.url, img.prompt, img.aspect_ratio, img.seed]))}
         RETURNING id, url, prompt, created_at
       `
 
