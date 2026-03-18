@@ -1,22 +1,15 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-export const isSupabaseConfigured = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 
-// Create client with dummy values if not configured (will error on actual calls)
-// This allows the app to load and show setup screen
-let supabase: SupabaseClient
+let supabase: SupabaseClient | null = null
 
-try {
-  supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder-key')
-} catch (error) {
-  console.warn('[v0] Failed to initialize Supabase client - using mock mode')
-  // Fallback for any initialization errors
-  supabase = null as any
+// Only initialize Supabase if both credentials are present
+if (supabaseUrl && supabaseAnonKey) {
+  supabase = createClient(supabaseUrl, supabaseAnonKey)
 }
 
 export { supabase }
