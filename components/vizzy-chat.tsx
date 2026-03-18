@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
 import { ChatMessage } from "@/components/chat-message"
 import { ChatInput } from "@/components/chat-input"
 import { ImageLightbox } from "@/components/image-lightbox"
@@ -12,7 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Sparkles, Plus, Sun, Moon, Trash2, Clock } from "lucide-react"
+import { Sparkles, Plus, Sun, Moon, Trash2, Clock, LogOut, User } from "lucide-react"
 import { useTheme } from "next-themes"
 import type { ChatMessage as ChatMessageType } from "@/lib/types"
 
@@ -205,6 +207,8 @@ function generateAssistantText(numImages: number, prompt: string): string {
 }
 
 export function VizzyChat() {
+  const router = useRouter()
+  const { user, signOut } = useAuth()
   const [messages, setMessages] = useState<ChatMessageType[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -214,6 +218,15 @@ export function VizzyChat() {
   const [uploadedImage, setUploadedImage] = useState<{ url: string; fileName: string } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { theme, setTheme } = useTheme()
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      router.push("/auth/login")
+    } catch (error) {
+      console.error("Logout failed:", error)
+    }
+  }
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -578,7 +591,7 @@ export function VizzyChat() {
           )}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link href="/history">
+              <Link href="/gallery">
                 <Button
                   variant="ghost"
                   size="icon-sm"
@@ -589,7 +602,7 @@ export function VizzyChat() {
                 </Button>
               </Link>
             </TooltipTrigger>
-            <TooltipContent side="bottom">Generation history</TooltipContent>
+            <TooltipContent side="bottom">Gallery</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -605,6 +618,35 @@ export function VizzyChat() {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Toggle theme</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/profile">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-foreground rounded-xl"
+                  aria-label="User profile"
+                >
+                  <User className="size-4" />
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{user?.email}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleLogout}
+                className="text-muted-foreground hover:text-destructive rounded-xl"
+                aria-label="Logout"
+              >
+                <LogOut className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Logout</TooltipContent>
           </Tooltip>
         </div>
       </header>
