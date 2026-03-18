@@ -42,7 +42,12 @@ export function ImageGallery({ aspectRatioFilter, showFavorites = false }: Image
   const { data: galleryData, isLoading, error, mutate } = useSWR(
     session?.access_token ? (showFavorites ? "/api/gallery/images/favorites" : "/api/gallery/images") : null,
     fetcher,
-    { revalidateOnFocus: false }
+    { 
+      revalidateOnFocus: false,
+      dedupingInterval: 60000,
+      focusThrottleInterval: 30000,
+      timeout: 5000, // 5 second timeout
+    }
   )
 
   useEffect(() => {

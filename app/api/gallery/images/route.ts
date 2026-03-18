@@ -12,7 +12,7 @@ const supabase = supabaseUrl && supabaseAnonKey
 export async function GET(request: NextRequest) {
   try {
     if (!supabase) {
-      console.log('[v0] Supabase not configured for gallery fetch')
+      console.log('[v0] Supabase not configured, returning empty gallery')
       return NextResponse.json({ results: [] }, { status: 200 })
     }
 
@@ -21,33 +21,84 @@ export async function GET(request: NextRequest) {
     const token = authHeader?.replace('Bearer ', '')
 
     if (!token) {
-      console.log('[v0] No auth token provided for gallery fetch')
+      console.log('[v0] No auth token provided, using local cache')
       return NextResponse.json({ results: [] }, { status: 200 })
     }
 
-    console.log('[v0] Fetching images from Supabase with user token')
+    console.log('[v0] Fetching images from Supabase for authenticated user')
 
-    // Get current user from token
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
-    
-    if (userError || !user) {
-      console.log('[v0] User authentication failed for gallery fetch')
+    // Set a timeout for the auth check (3 seconds max)
+    const authPromise = supabase.auth.getUser(token)
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Auth timeout')), 3000)
+    )
+
+    let user
+    try {
+      const { data, error: userError } = await Promise.race([
+        authPromise,
+        timeoutPromise as any,
+      ]) as any
+
+      if (userError || !data?.user) {
+        console.log('[v0] User authentication failed or timed out, using local cache')
+        return NextResponse.json({ results: [] }, { status: 200 })
+      }
+      user = data.user
+    } catch (timeoutErr) {
+      console.log('[v0] Auth check timed out, using local cache')
       return NextResponse.json({ results: [] }, { status: 200 })
     }
 
-    // Fetch images for this user from Supabase
-    const { data: images, error } = await supabase
+    console.log('[v0] Fetching images for user:', user.id)
+
+    // Fetch images for this user from Supabase with timeout
+    const imagesPromise = supabase
       .from('images')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('[v0] Supabase error fetching images:', error)
+    const imagesTimeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Query timeout')), 5000)
+    )
+
+    let images
+    try {
+      const result = await Promise.race([
+        imagesPromise,
+        imagesTimeoutPromise as any,
+      ]) as any
+
+      if (result.error) {
+        console.error('[v0] Supabase query error:', result.error)
+        return NextResponse.json({ results: [] }, { status: 200 })
+      }
+      images = result.data
+    } catch (timeoutErr) {
+      console.log('[v0] Images query timed out, using local cache')
       return NextResponse.json({ results: [] }, { status: 200 })
     }
 
-    console.log('[v0] Retrieved', images?.length || 0, 'images from Supabase')
+    console.log('[v0] Successfully retrieved', images?.length || 0, 'images from Supabase')
+
+    // Transform data to match frontend expectations
+    const results = (images || []).map((img: any) => ({
+      id: img.id,
+      image_url: img.url,
+      thumbnail_url: img.url,
+      prompt: img.prompt,
+      aspect_ratio: img.aspect_ratio || '1:1',
+      created_at: img.created_at,
+      is_favorited: img.is_favorited || false,
+    }))
+
+    return NextResponse.json({ results }, { status: 200 })
+  } catch (error) {
+    console.error('[v0] Unexpected error in gallery GET:', error)
+    return NextResponse.json({ results: [] }, { status: 200 })
+  }
+}
 
     // Transform data to match frontend expectations
     const results = (images || []).map((img: any) => ({
