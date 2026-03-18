@@ -438,6 +438,7 @@ export function VizzyChat() {
                   content: analysisData.analysis,
                   images: [],
                   isLoading: false,
+                  timestamp: Date.now(),
                 },
               ])
             }
