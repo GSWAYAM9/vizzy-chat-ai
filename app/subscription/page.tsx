@@ -140,13 +140,13 @@ export default function SubscriptionPage() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className={`inline-block px-4 py-2 rounded-lg font-semibold mb-2 ${getTierColor(subscriptionStatus.tier)}`}>
-                      {subscriptionStatus.tier.charAt(0).toUpperCase() + subscriptionStatus.tier.slice(1)} Tier
+                    <div className={`inline-block px-4 py-2 rounded-lg font-semibold mb-2 ${getTierColor(subscriptionStatus?.tier || 'basic')}`}>
+                      {(subscriptionStatus?.tier || 'basic').charAt(0).toUpperCase() + (subscriptionStatus?.tier || 'basic').slice(1)} Tier
                     </div>
-                    <p className="text-muted-foreground">{getTierDescription(subscriptionStatus.tier)}</p>
+                    <p className="text-muted-foreground">{getTierDescription(subscriptionStatus?.tier || 'basic')}</p>
                     <p className="text-sm text-muted-foreground mt-2">Renews on {new Date(subscriptionStatus.renewalDate).toLocaleDateString()}</p>
                   </div>
-                  {subscriptionStatus.tier !== 'premium' && (
+                  {(subscriptionStatus?.tier || 'basic') !== 'premium' && (
                     <Button className="bg-accent hover:bg-accent/90">
                       Upgrade Plan
                     </Button>
