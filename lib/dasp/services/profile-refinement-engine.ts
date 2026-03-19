@@ -377,7 +377,7 @@ export async function runAISynthesis(userId: string, timeWindowDays: number = 7)
     }
 
     // Analyze patterns (in real implementation, would call LLM)
-    const insights = analyzeSignalPatterns(recentSignals.map(s => s.signal_data))
+    const insights = analyzeSignalPatterns(recentSignals.map((s: any) => s.signal_data))
 
     // Generate suggestions
     const suggestions = generateProfileSuggestions(profile, insights)
