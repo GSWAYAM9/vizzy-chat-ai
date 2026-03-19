@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/neon-auth-context"
 import { ChatMessage } from "@/components/chat-message"
 import { ChatInput } from "@/components/chat-input"
 import { ImageLightbox } from "@/components/image-lightbox"

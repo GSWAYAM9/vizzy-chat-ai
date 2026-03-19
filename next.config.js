@@ -1,8 +1,16 @@
 /** @type {import('next').NextConfig} */
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
 const nextConfig = {
   reactStrictMode: true,
   turbopack: {
-    resolveAlias: {},
+    root: __dirname,
+    resolveAlias: {
+      '@': __dirname,
+    },
   },
   // Optimize images
   images: {

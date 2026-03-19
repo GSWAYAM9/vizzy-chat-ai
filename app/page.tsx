@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/neon-auth-context"
 import { SetupRequired } from "@/components/setup-required"
 import { VizzyChat } from "@/components/vizzy-chat"
 

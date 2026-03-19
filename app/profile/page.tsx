@@ -1,6 +1,6 @@
 "use client"
 
-import { useAuth } from "@/lib/auth-context"
+import { useAuth } from "@/lib/neon-auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -50,10 +50,10 @@ export default function ProfilePage() {
                 <label className="text-sm font-medium">User ID</label>
                 <Input value={user.id} disabled />
               </div>
-              {user.user_metadata?.name && (
+              {user.name && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Full Name</label>
-                  <Input value={user.user_metadata.name} disabled />
+                  <Input value={user.name} disabled />
                 </div>
               )}
             </CardContent>
