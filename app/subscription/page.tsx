@@ -43,7 +43,11 @@ export default function SubscriptionPage() {
     try {
       setLoading(true)
       setError(null)
-      const response = await fetch('/api/subscription/status')
+      const response = await fetch('/api/subscription/status', {
+        headers: {
+          'x-user-id': user?.id || '',
+        },
+      })
       
       if (!response.ok) {
         throw new Error('Failed to fetch subscription status')

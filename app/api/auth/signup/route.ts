@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sql, isNeonConfigured } from '@/lib/neon-client'
 import * as bcrypt from 'bcryptjs'
 import { generateVerificationToken, sendVerificationEmail } from '@/lib/email-service'
+import { createSubscription } from '@/lib/subscription/subscription-service'
 
 async function ensureTablesExist() {
   try {
@@ -114,6 +115,14 @@ export async function POST(request: NextRequest) {
       const user = result[0]
       const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64')
 
+      // Initialize subscription for new user
+      try {
+        await createSubscription(user.id)
+      } catch (subError) {
+        console.error('[v0] Error creating subscription:', subError)
+        // Don't fail signup if subscription creation fails
+      }
+
       // Send verification email
       console.log('[v0] Sending verification email to:', email)
       await sendVerificationEmail(email, verificationToken, name)
@@ -152,6 +161,14 @@ export async function POST(request: NextRequest) {
 
           const user = result[0]
           const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64')
+
+          // Initialize subscription for new user
+          try {
+            await createSubscription(user.id)
+          } catch (subError) {
+            console.error('[v0] Error creating subscription:', subError)
+            // Don't fail signup if subscription creation fails
+          }
 
           // Send verification email
           await sendVerificationEmail(email, verificationToken, name)
