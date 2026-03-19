@@ -34,16 +34,12 @@ CREATE TABLE IF NOT EXISTS user_credits (
   UNIQUE(user_id)
 );
 
--- Image usage tracking
+-- Image usage tracking (simplified)
 CREATE TABLE IF NOT EXISTS image_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   subscription_tier_id UUID NOT NULL REFERENCES subscription_tiers(id),
-  image_id UUID REFERENCES images(id) ON DELETE SET NULL,
-  created_at_utc TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT check_billing_month CHECK (
-    DATE_TRUNC('month', created_at_utc::timestamp) = DATE_TRUNC('month', CURRENT_TIMESTAMP)
-  )
+  created_at_utc TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Credit purchases history
@@ -58,10 +54,18 @@ CREATE TABLE IF NOT EXISTS credit_purchases (
 );
 
 -- Indexes
-CREATE INDEX idx_user_subscriptions_user_id ON user_subscriptions(user_id);
-CREATE INDEX idx_user_subscriptions_tier_id ON user_subscriptions(tier_id);
-CREATE INDEX idx_user_credits_user_id ON user_credits(user_id);
-CREATE INDEX idx_image_usage_user_id ON image_usage(user_id);
-CREATE INDEX idx_image_usage_created_at ON image_usage(created_at_utc);
-CREATE INDEX idx_credit_purchases_user_id ON credit_purchases(user_id);
-CREATE INDEX idx_credit_purchases_status ON credit_purchases(payment_status);
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_user_id ON user_subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_subscriptions_tier_id ON user_subscriptions(tier_id);
+CREATE INDEX IF NOT EXISTS idx_user_credits_user_id ON user_credits(user_id);
+CREATE INDEX IF NOT EXISTS idx_image_usage_user_id ON image_usage(user_id);
+CREATE INDEX IF NOT EXISTS idx_image_usage_created_at ON image_usage(created_at_utc);
+CREATE INDEX IF NOT EXISTS idx_credit_purchases_user_id ON credit_purchases(user_id);
+CREATE INDEX IF NOT EXISTS idx_credit_purchases_status ON credit_purchases(payment_status);
+
+-- Insert default subscription tiers
+INSERT INTO subscription_tiers (name, display_name, monthly_image_limit, price_usd, description)
+VALUES 
+  ('basic', 'Basic', 200, 0.00, 'Free tier with 200 images per month'),
+  ('advanced', 'Advanced', 400, 9.99, 'Advanced tier with 400 images per month'),
+  ('premium', 'Premium', 800, 24.99, 'Premium tier with 800 images per month')
+ON CONFLICT (name) DO NOTHING;
