@@ -155,7 +155,7 @@ export class VizzyCreationCanvas {
     this.session.updatedAt = new Date()
 
     // Add system message about the output
-    this.addAssistantMessage(`Created: ${output.title}`, 'output')
+    this.addAssistantMessage(`Created: ${output.title}`, 'text')
   }
 
   /**
