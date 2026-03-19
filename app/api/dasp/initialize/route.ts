@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sql } from '@/lib/neon-client'
-import { createDeepUserProfile, completeOnboarding } from '@/lib/dasp/services/deep-user-profile-service'
+import { createDeepUserProfile, completeOnboarding, getDeepUserProfile } from '@/lib/dasp/services/deep-user-profile-service'
 import { SYSTEM_CARD } from '@/lib/dasp/config/system-card'
 
 /**

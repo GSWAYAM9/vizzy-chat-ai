@@ -5,7 +5,7 @@
  */
 
 import { sql } from '@/lib/neon-client'
-import type { DeepUserProfile, ProfileUpdateEvent, IdentityLayer } from './types/deep-user-profile'
+import type { DeepUserProfile, ProfileUpdateEvent, IdentityLayer } from '../types/deep-user-profile'
 import { v4 as uuidv4 } from 'uuid'
 
 /**

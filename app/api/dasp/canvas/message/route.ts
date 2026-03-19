@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         message: 'Message added',
-        message: message,
+        data: message,
       },
       { status: 201 }
     )

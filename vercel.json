@@ -3,11 +3,9 @@
   "buildCommand": "pnpm run build",
   "devCommand": "pnpm dev",
   "installCommand": "pnpm install",
-  "framework": "nextjs",
-  "env": {
-    "TURBOPACK_ROOT": "/vercel/share/v0-project"
-  }
+  "framework": "nextjs"
 }
+
 
 
 
