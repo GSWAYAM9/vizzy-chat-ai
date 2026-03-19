@@ -20,7 +20,7 @@ interface SubscriptionStatus {
 }
 
 export default function SubscriptionPage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null)
   const [loading, setLoading] = useState(true)
