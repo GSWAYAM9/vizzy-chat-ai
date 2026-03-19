@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "rm -rf .turbo .next .vercel && pnpm run build",
+  "buildCommand": "pnpm run build",
   "devCommand": "pnpm dev",
   "installCommand": "pnpm install",
   "framework": "nextjs",

@@ -5,7 +5,7 @@ import {
   recordOnboardingResponse,
   completeOnboardingSession,
   skipOnboarding,
-  getOnboardingProgress,
+  getOnboardingProgressForUser,
 } from '@/lib/dasp/services/onboarding-service'
 import { ONBOARDING_FLOW } from '@/lib/dasp/types/onboarding'
 import type { OnboardingStage } from '@/lib/dasp/types/onboarding'
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     const currentStep = ONBOARDING_FLOW.find(s => s.stage === session.currentStage)
 
     // Get progress
-    const progress = await getOnboardingProgress(userId)
+    const progress = await getOnboardingProgressForUser(userId)
 
     return NextResponse.json(
       {

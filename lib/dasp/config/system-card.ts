@@ -218,9 +218,9 @@ export const SYSTEM_CARD = {
     currentVersion: '1.2',
     releaseDate: 'Q1 2024',
     roadmap: {
-      v1.3: 'Enhanced emotional modelling, real-time wearable integration',
-      v1.4: 'Multi-frame household coordination, social features',
-      v2.0: 'Advanced generative capabilities, voice interface',
+      'v1.3': 'Enhanced emotional modelling, real-time wearable integration',
+      'v1.4': 'Multi-frame household coordination, social features',
+      'v2.0': 'Advanced generative capabilities, voice interface',
     },
   },
 }

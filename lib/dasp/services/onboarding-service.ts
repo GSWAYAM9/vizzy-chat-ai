@@ -5,9 +5,9 @@
  */
 
 import { sql } from '@/lib/neon-client'
-import type { OnboardingSession, OnboardingStage } from './types/onboarding'
-import { ONBOARDING_FLOW, getOnboardingProgress, isMinimumViableProfileComplete } from './types/onboarding'
-import { updateProfileLayer, completeOnboarding } from './services/deep-user-profile-service'
+import type { OnboardingSession, OnboardingStage } from '@/lib/dasp/types/onboarding'
+import { ONBOARDING_FLOW, isMinimumViableProfileComplete } from '@/lib/dasp/types/onboarding'
+import { updateProfileLayer, completeOnboarding } from '@/lib/dasp/services/deep-user-profile-service'
 
 /**
  * Create a new onboarding session
@@ -257,9 +257,9 @@ export async function skipOnboarding(userId: string): Promise<void> {
 }
 
 /**
- * Get onboarding progress for a user
+ * Get onboarding progress for a user (database query version)
  */
-export async function getOnboardingProgress(userId: string): Promise<{
+export async function getOnboardingProgressForUser(userId: string): Promise<{
   currentStage: OnboardingStage | null
   completedStages: OnboardingStage[]
   completionPercentage: number

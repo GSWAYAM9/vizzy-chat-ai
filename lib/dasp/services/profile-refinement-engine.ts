@@ -5,8 +5,8 @@
  */
 
 import { sql } from '@/lib/neon-client'
-import type { DeepUserProfile, ProfileUpdateEvent } from './types/deep-user-profile'
-import { updateProfileLayer, recordProfileUpdateEvent } from './services/deep-user-profile-service'
+import type { DeepUserProfile, ProfileUpdateEvent } from '@/lib/dasp/types/deep-user-profile'
+import { updateProfileLayer, recordProfileUpdateEvent } from '@/lib/dasp/services/deep-user-profile-service'
 
 /**
  * Signal types that trigger profile refinement
