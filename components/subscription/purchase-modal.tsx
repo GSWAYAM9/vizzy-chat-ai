@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertCircle, Loader2 } from 'lucide-react'
 
 interface PurchaseModalProps {
   isOpen: boolean
@@ -11,187 +12,198 @@ interface PurchaseModalProps {
   onSuccess: () => void
 }
 
-interface CreditOption {
-  credits: number
-  price: number
-  bonus: number
-  popular?: boolean
-}
-
-const CREDIT_OPTIONS: CreditOption[] = [
-  { credits: 5, price: 4.99, bonus: 0 },
-  { credits: 10, price: 9.99, bonus: 0 },
-  { credits: 25, price: 24.99, bonus: 5, popular: true },
-  { credits: 50, price: 49.99, bonus: 10 },
+const CREDIT_BUNDLES = [
+  { credits: 5, label: '5 Credits', price: 4.95 },
+  { credits: 10, label: '10 Credits', price: 9.99 },
+  { credits: 25, label: '25 Credits', price: 24.99, bonus: 5, popular: true },
+  { credits: 50, label: '50 Credits', price: 49.99, bonus: 10 },
 ]
 
 export default function PurchaseModal({ isOpen, onClose, onSuccess }: PurchaseModalProps) {
-  const [selectedOption, setSelectedOption] = useState<number | null>(1)
-  const [customAmount, setCustomAmount] = useState('')
+  const [selectedBundle, setSelectedBundle] = useState<number | null>(null)
+  const [customCredits, setCustomCredits] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [useCustom, setUseCustom] = useState(false)
 
-  if (!isOpen) return null
+  const calculatePrice = (credits: number) => {
+    return (credits * 0.99).toFixed(2)
+  }
+
+  const getSelectedOption = () => {
+    if (selectedBundle !== null) {
+      return CREDIT_BUNDLES[selectedBundle]
+    }
+    if (customCredits) {
+      const credits = parseInt(customCredits)
+      return {
+        credits,
+        label: `${credits} Credits`,
+        price: parseFloat(calculatePrice(credits)),
+      }
+    }
+    return null
+  }
+
+  const selectedOption = getSelectedOption()
+  const totalImages = selectedOption ? selectedOption.credits * 20 + (selectedOption.bonus ? selectedOption.bonus * 20 : 0) : 0
 
   const handlePurchase = async () => {
+    if (!selectedOption) return
+
     try {
       setLoading(true)
       setError(null)
 
-      const creditsToAdd = useCustom ? parseInt(customAmount) : CREDIT_OPTIONS[selectedOption!].credits
-
-      if (!creditsToAdd || creditsToAdd <= 0) {
-        setError('Please enter a valid amount')
-        return
-      }
-
       const response = await fetch('/api/subscription/purchase-credits', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creditsToAdd }),
+        body: JSON.stringify({
+          credits: selectedOption.credits,
+        }),
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || 'Failed to purchase credits')
+        throw new Error('Failed to purchase credits')
       }
 
       onSuccess()
+      resetModal()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      const message = err instanceof Error ? err.message : 'Purchase failed'
+      setError(message)
+      console.error('[v0] Purchase error:', message)
     } finally {
       setLoading(false)
     }
   }
 
-  const selectedCredit = !useCustom ? CREDIT_OPTIONS[selectedOption!] : null
-  const totalImages = !useCustom ? (CREDIT_OPTIONS[selectedOption!].credits + CREDIT_OPTIONS[selectedOption!].bonus) * 20 : parseInt(customAmount) * 20
+  const resetModal = () => {
+    setSelectedBundle(null)
+    setCustomCredits('')
+    setError(null)
+  }
+
+  const handleClose = () => {
+    resetModal()
+    onClose()
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl border border-border">
-        <div className="p-6 sm:p-8">
-          {/* Header */}
-          <div className="mb-6">
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Purchase Credits</h2>
-            <p className="text-foreground/60 text-sm sm:text-base mt-1">Each credit gives you 20 additional images</p>
-          </div>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Buy Credits</DialogTitle>
+          <DialogDescription>
+            Purchase additional credits to extend your monthly image limit. Each credit equals 20 images.
+          </DialogDescription>
+        </DialogHeader>
 
-          {error && (
-            <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg mb-6">
-              <p className="text-sm text-destructive">{error}</p>
-            </div>
-          )}
-
-          {/* Credit Options */}
-          {!useCustom ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              {CREDIT_OPTIONS.map((option, idx) => (
+        <div className="space-y-4">
+          {/* Preset Bundles */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Preset Bundles</label>
+            <div className="grid grid-cols-2 gap-2">
+              {CREDIT_BUNDLES.map((bundle, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setSelectedOption(idx)}
-                  className={`relative p-4 rounded-lg border-2 transition-all ${
-                    selectedOption === idx
-                      ? 'border-accent bg-accent/10'
-                      : 'border-border hover:border-border'
+                  onClick={() => {
+                    setSelectedBundle(selectedBundle === idx ? null : idx)
+                    setCustomCredits('')
+                  }}
+                  className={`p-3 rounded-lg border-2 transition-all text-sm font-medium ${
+                    selectedBundle === idx
+                      ? 'border-accent bg-accent/10 text-foreground'
+                      : 'border-gray-200 bg-white text-foreground hover:border-accent'
                   }`}
                 >
-                  {option.popular && (
-                    <div className="absolute top-2 right-2 px-2 py-1 bg-accent text-accent-foreground text-xs font-semibold rounded-full">
-                      Popular
-                    </div>
+                  <div className="text-sm font-semibold">{bundle.label}</div>
+                  <div className="text-xs text-muted-foreground">${bundle.price.toFixed(2)}</div>
+                  {bundle.bonus && (
+                    <div className="text-xs text-green-600 font-semibold mt-1">+{bundle.bonus} bonus</div>
                   )}
-
-                  <div className="text-left">
-                    <p className="text-lg font-bold text-foreground">{option.credits} Credits</p>
-                    {option.bonus > 0 && (
-                      <p className="text-sm text-accent">+{option.bonus} bonus</p>
-                    )}
-                    <p className="text-2xl font-bold text-foreground mt-2">${option.price}</p>
-                    <p className="text-xs text-foreground/60 mt-1">
-                      = {(option.credits + option.bonus) * 20} images
-                    </p>
-                  </div>
+                  {bundle.popular && (
+                    <div className="text-xs bg-accent text-white rounded px-2 py-1 mt-1 inline-block">Popular</div>
+                  )}
                 </button>
               ))}
             </div>
-          ) : (
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-foreground mb-2">
-                How many credits?
-              </label>
+          </div>
+
+          {/* Custom Amount */}
+          <div className="space-y-2 pt-2 border-t">
+            <label className="text-sm font-medium text-foreground">Custom Amount</label>
+            <div className="flex gap-2">
               <Input
                 type="number"
+                placeholder="Enter credits"
+                value={customCredits}
+                onChange={(e) => {
+                  setCustomCredits(e.target.value)
+                  setSelectedBundle(null)
+                }}
                 min="1"
-                max="1000"
-                value={customAmount}
-                onChange={(e) => setCustomAmount(e.target.value)}
-                placeholder="Enter number of credits"
-                className="mb-2"
+                max="500"
+                className="flex-1"
               />
-              {customAmount && (
-                <p className="text-sm text-foreground/60">
-                  {parseInt(customAmount) * 20} images at $0.99 per credit = ${(parseInt(customAmount) * 0.99).toFixed(2)}
-                </p>
-              )}
+              <span className="flex items-center text-sm text-muted-foreground">credits</span>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="flex gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+              <span className="text-sm text-red-800">{error}</span>
             </div>
           )}
-
-          {/* Toggle Custom */}
-          <button
-            onClick={() => {
-              setUseCustom(!useCustom)
-              setError(null)
-            }}
-            className="text-sm text-accent hover:text-accent/80 mb-6"
-          >
-            {useCustom ? 'Choose preset amount' : 'Enter custom amount'}
-          </button>
 
           {/* Summary */}
-          {selectedCredit && !useCustom && (
-            <div className="p-4 bg-secondary/50 rounded-lg mb-6">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-foreground/60">Credits</span>
-                <span className="font-semibold text-foreground">{selectedCredit.credits + selectedCredit.bonus}</span>
+          {selectedOption && (
+            <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{selectedOption.credits} Credits</span>
+                <span className="font-medium">${selectedOption.price.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-foreground/60">Images</span>
-                <span className="font-semibold text-foreground">{totalImages}</span>
-              </div>
-              <div className="border-t border-border pt-2 mt-2 flex justify-between items-center">
-                <span className="font-semibold text-foreground">Total</span>
-                <span className="text-2xl font-bold text-accent">${selectedCredit.price}</span>
+              {selectedOption.bonus && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>+ {selectedOption.bonus} Bonus Credits</span>
+                  <span>FREE</span>
+                </div>
+              )}
+              <div className="border-t pt-2 flex justify-between text-sm font-semibold">
+                <span>Total Images</span>
+                <span>{totalImages} images</span>
               </div>
             </div>
           )}
 
-          {/* Buttons */}
-          <div className="flex gap-3">
+          {/* Action Buttons */}
+          <div className="flex gap-2 pt-4">
             <Button
               variant="outline"
-              onClick={onClose}
-              disabled={loading}
+              onClick={handleClose}
               className="flex-1"
+              disabled={loading}
             >
               Cancel
             </Button>
             <Button
               onClick={handlePurchase}
-              disabled={loading || (useCustom && !customAmount)}
-              className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
+              disabled={!selectedOption || loading}
+              className="flex-1 bg-accent hover:bg-accent/90"
             >
-              {loading ? 'Processing...' : `Purchase${selectedCredit ? ` - $${selectedCredit.price}` : ''}`}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                `Buy ${selectedOption?.credits || 'Credits'}`
+              )}
             </Button>
           </div>
-
-          {/* Footer */}
-          <p className="text-xs text-foreground/40 text-center mt-4">
-            Credits are non-refundable and expire after 1 year of inactivity
-          </p>
         </div>
-      </Card>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

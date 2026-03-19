@@ -14,7 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Sparkles, Plus, Sun, Moon, Trash2, Clock, LogOut, User } from "lucide-react"
+import { Sparkles, Plus, Sun, Moon, Trash2, Clock, LogOut, User, Zap } from "lucide-react"
 import { useTheme } from "next-themes"
 import { imageCache } from "@/lib/image-cache"
 import type { ChatMessage as ChatMessageType } from "@/lib/types"
@@ -596,6 +596,21 @@ export function VizzyChat() {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Toggle theme</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/subscription">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-accent rounded-xl"
+                  aria-label="Subscription and credits"
+                >
+                  <Zap className="size-4" />
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Credits</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
