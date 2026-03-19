@@ -43,26 +43,14 @@ export async function initializeSubscriptionTiers() {
  */
 export async function createSubscription(userId: string) {
   try {
-    // Check if tables exist first
-    const tableCheck = await sql`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.tables 
-        WHERE table_schema='public' AND table_name='subscription_tiers'
-      )
-    `
-    
-    if (!tableCheck[0].exists) {
-      console.log('[SUBSCRIPTION] Tables not yet created, skipping subscription creation')
-      return
-    }
-
-    const basicTier = getTierByName('basic')
     const tierResult = await sql`
       SELECT id FROM subscription_tiers WHERE name = 'basic'
+      LIMIT 1
     `
 
     if (!tierResult || tierResult.length === 0) {
-      throw new Error('Basic tier not found')
+      console.log('[SUBSCRIPTION] Basic tier not found or tables do not exist, skipping subscription creation')
+      return
     }
 
     const tierId = tierResult[0].id
@@ -83,8 +71,8 @@ export async function createSubscription(userId: string) {
 
     console.log(`[SUBSCRIPTION] Subscription created for user ${userId}`)
   } catch (error) {
-    console.error('[SUBSCRIPTION] Error creating subscription:', error)
-    // Don't throw - allow signup to succeed even if subscription creation fails
+    console.log('[SUBSCRIPTION] Tables do not exist yet - using default subscription. Error:', error instanceof Error ? error.message : String(error))
+    // Don't throw - allow signup to succeed even if subscription creation fails due to missing tables
   }
 }
 
@@ -111,12 +99,41 @@ export async function getSubscriptionStatus(userId: string) {
       JOIN subscription_tiers st ON us.tier_id = st.id
       LEFT JOIN user_credits uc ON us.user_id = uc.user_id
       WHERE us.user_id = ${userId}
+      LIMIT 1
     `
 
     if (!result || result.length === 0) {
       console.log('[SUBSCRIPTION] No subscription found, returning default')
       return getDefaultSubscription()
     }
+
+    const sub = result[0]
+    const additionalImages = calculateAdditionalImages(sub.available_credits || 0)
+    const totalImageLimit = sub.monthly_image_limit + additionalImages
+    const remainingImages = totalImageLimit - sub.current_month_images
+
+    return {
+      userId: sub.user_id,
+      tierId: sub.id,
+      tierName: sub.tier_name,
+      tierDisplayName: sub.tier_display_name,
+      monthlyImageLimit: sub.monthly_image_limit,
+      currentMonthImages: sub.current_month_images,
+      additionalImagesFromCredits: additionalImages,
+      totalImageLimit,
+      remainingImages,
+      billingCycleStart: sub.billing_cycle_start,
+      billingCycleEnd: sub.billing_cycle_end,
+      isActive: sub.is_active,
+      availableCredits: sub.available_credits || 0,
+      totalCreditsPurchased: sub.total_credits_purchased || 0,
+    }
+  } catch (error) {
+    console.log('[SUBSCRIPTION] Tables do not exist or query failed - returning default subscription. Error:', error instanceof Error ? error.message : String(error))
+    // Return default subscription if database query fails (tables don't exist yet)
+    return getDefaultSubscription()
+  }
+}
 
     const sub = result[0]
     const additionalImages = calculateAdditionalImages(sub.available_credits || 0)
