@@ -300,7 +300,7 @@ export async function processConnectedDataSignal(signal: ConnectedDataSignal): P
 
       case 'weather':
         // Weather affects mood and inspiration
-        if (signal.data.condition) {
+        if (signal.rawData?.condition) {
           // Log environmental context for mood analysis
         }
         break
