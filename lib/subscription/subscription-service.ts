@@ -135,34 +135,6 @@ export async function getSubscriptionStatus(userId: string) {
   }
 }
 
-    const sub = result[0]
-    const additionalImages = calculateAdditionalImages(sub.available_credits || 0)
-    const totalImageLimit = sub.monthly_image_limit + additionalImages
-    const remainingImages = totalImageLimit - sub.current_month_images
-
-    return {
-      userId: sub.user_id,
-      tierId: sub.id,
-      tierName: sub.tier_name,
-      tierDisplayName: sub.tier_display_name,
-      monthlyImageLimit: sub.monthly_image_limit,
-      currentMonthImages: sub.current_month_images,
-      additionalImagesFromCredits: additionalImages,
-      totalImageLimit,
-      remainingImages,
-      billingCycleStart: sub.billing_cycle_start,
-      billingCycleEnd: sub.billing_cycle_end,
-      isActive: sub.is_active,
-      availableCredits: sub.available_credits || 0,
-      totalCreditsPurchased: sub.total_credits_purchased || 0,
-    }
-  } catch (error) {
-    console.error('[SUBSCRIPTION] Error getting subscription status:', error)
-    // Return default subscription if database query fails
-    return getDefaultSubscription()
-  }
-}
-
 /**
  * Get default subscription when database is not available
  */
