@@ -43,13 +43,14 @@ export async function initializeSubscriptionTiers() {
  */
 export async function createSubscription(userId: string) {
   try {
-    const basicTier = getTierByName('basic')
     const tierResult = await sql`
       SELECT id FROM subscription_tiers WHERE name = 'basic'
+      LIMIT 1
     `
 
     if (!tierResult || tierResult.length === 0) {
-      throw new Error('Basic tier not found')
+      console.log('[SUBSCRIPTION] Basic tier not found or tables do not exist, skipping subscription creation')
+      return
     }
 
     const tierId = tierResult[0].id
@@ -70,8 +71,8 @@ export async function createSubscription(userId: string) {
 
     console.log(`[SUBSCRIPTION] Subscription created for user ${userId}`)
   } catch (error) {
-    console.error('[SUBSCRIPTION] Error creating subscription:', error)
-    throw error
+    console.log('[SUBSCRIPTION] Tables do not exist yet - using default subscription. Error:', error instanceof Error ? error.message : String(error))
+    // Don't throw - allow signup to succeed even if subscription creation fails due to missing tables
   }
 }
 
@@ -98,6 +99,7 @@ export async function getSubscriptionStatus(userId: string) {
       JOIN subscription_tiers st ON us.tier_id = st.id
       LEFT JOIN user_credits uc ON us.user_id = uc.user_id
       WHERE us.user_id = ${userId}
+      LIMIT 1
     `
 
     if (!result || result.length === 0) {
@@ -127,8 +129,8 @@ export async function getSubscriptionStatus(userId: string) {
       totalCreditsPurchased: sub.total_credits_purchased || 0,
     }
   } catch (error) {
-    console.error('[SUBSCRIPTION] Error getting subscription status:', error)
-    // Return default subscription if database query fails
+    console.log('[SUBSCRIPTION] Tables do not exist or query failed - returning default subscription. Error:', error instanceof Error ? error.message : String(error))
+    // Return default subscription if database query fails (tables don't exist yet)
     return getDefaultSubscription()
   }
 }

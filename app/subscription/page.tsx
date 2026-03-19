@@ -163,9 +163,9 @@ export default function SubscriptionPage() {
               </CardHeader>
               <CardContent>
                 <UsageMeter
-                  used={subscriptionStatus.imagesUsedThisMonth}
-                  limit={subscriptionStatus.monthlyLimit}
-                  percentage={subscriptionStatus.percentageUsed}
+                  used={Number(subscriptionStatus?.imagesUsedThisMonth) || 0}
+                  limit={Number(subscriptionStatus?.monthlyLimit) || 200}
+                  percentage={Number(subscriptionStatus?.percentageUsed) || 0}
                 />
               </CardContent>
             </Card>
