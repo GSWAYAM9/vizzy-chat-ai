@@ -23,7 +23,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(status, { status: 200 })
+    // Transform service response to match frontend interface
+    const formattedStatus = {
+      tier: status.tierName || 'basic',
+      imagesUsedThisMonth: status.currentMonthImages || 0,
+      monthlyLimit: status.monthlyImageLimit || 200,
+      availableCredits: status.availableCredits || 0,
+      creditsValue: (status.availableCredits || 0) * 20, // Each credit = 20 images
+      renewalDate: status.billingCycleEnd || new Date().toISOString(),
+      percentageUsed: status.monthlyImageLimit ? Math.round(((status.currentMonthImages || 0) / status.monthlyImageLimit) * 100) : 0,
+    }
+
+    return NextResponse.json(formattedStatus, { status: 200 })
   } catch (error) {
     console.error('[SUBSCRIPTION] Error fetching status:', error)
     return NextResponse.json(

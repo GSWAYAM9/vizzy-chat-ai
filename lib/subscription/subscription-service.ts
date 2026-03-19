@@ -43,6 +43,19 @@ export async function initializeSubscriptionTiers() {
  */
 export async function createSubscription(userId: string) {
   try {
+    // Check if tables exist first
+    const tableCheck = await sql`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema='public' AND table_name='subscription_tiers'
+      )
+    `
+    
+    if (!tableCheck[0].exists) {
+      console.log('[SUBSCRIPTION] Tables not yet created, skipping subscription creation')
+      return
+    }
+
     const basicTier = getTierByName('basic')
     const tierResult = await sql`
       SELECT id FROM subscription_tiers WHERE name = 'basic'
@@ -71,7 +84,7 @@ export async function createSubscription(userId: string) {
     console.log(`[SUBSCRIPTION] Subscription created for user ${userId}`)
   } catch (error) {
     console.error('[SUBSCRIPTION] Error creating subscription:', error)
-    throw error
+    // Don't throw - allow signup to succeed even if subscription creation fails
   }
 }
 
