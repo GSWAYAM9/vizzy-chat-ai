@@ -389,7 +389,7 @@ export async function getProfileUpdateHistory(
       LIMIT ${limit}
     `
 
-    return result.map(event => ({
+    return result.map((event: any) => ({
       userId: event.user_id,
       timestamp: new Date(event.timestamp),
       updateType: event.update_type,
