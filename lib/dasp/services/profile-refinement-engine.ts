@@ -286,7 +286,7 @@ export async function processConnectedDataSignal(signal: ConnectedDataSignal): P
         // Extract health and energy patterns
         if (signal.extractedInsights.energyLevel) {
           if (!updates.energyLevelByTime) {
-            updates.energyLevelByTime = profile.behavioral.energyLevelByTime || []
+            updates.energyLevelByTime = profile.emotional.energyLevelByTime || []
           }
           // Track energy levels by time of day
         }
