@@ -6,7 +6,7 @@
 
 import { sql } from '@/lib/neon-client'
 import type { OnboardingSession, OnboardingStage } from '../types/onboarding'
-import { ONBOARDING_FLOW, isMinimumViableProfileComplete } from '../types/onboarding'
+import { ONBOARDING_FLOW, isMinimumViableProfileComplete, getOnboardingProgress } from '../types/onboarding'
 import { updateProfileLayer, completeOnboarding } from '@/lib/dasp/services/deep-user-profile-service'
 
 /**
