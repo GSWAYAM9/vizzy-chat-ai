@@ -101,7 +101,8 @@ export async function getSubscriptionStatus(userId: string) {
     `
 
     if (!result || result.length === 0) {
-      return null
+      console.log('[SUBSCRIPTION] No subscription found, returning default')
+      return getDefaultSubscription()
     }
 
     const sub = result[0]
@@ -127,7 +128,34 @@ export async function getSubscriptionStatus(userId: string) {
     }
   } catch (error) {
     console.error('[SUBSCRIPTION] Error getting subscription status:', error)
-    throw error
+    // Return default subscription if database query fails
+    return getDefaultSubscription()
+  }
+}
+
+/**
+ * Get default subscription when database is not available
+ */
+function getDefaultSubscription() {
+  const now = new Date()
+  const billingCycleStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const billingCycleEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  
+  return {
+    userId: 'unknown',
+    tierId: 'default',
+    tierName: 'basic',
+    tierDisplayName: 'Basic',
+    monthlyImageLimit: 200,
+    currentMonthImages: 0,
+    additionalImagesFromCredits: 0,
+    totalImageLimit: 200,
+    remainingImages: 200,
+    billingCycleStart: billingCycleStart.toISOString().split('T')[0],
+    billingCycleEnd: billingCycleEnd.toISOString().split('T')[0],
+    isActive: true,
+    availableCredits: 0,
+    totalCreditsPurchased: 0,
   }
 }
 
