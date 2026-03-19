@@ -165,7 +165,7 @@ async function applyOnboardingResponseToProfile(
     const [layer, field] = fieldMap.split('.')
 
     // Map stage to profile layer
-    const layerMap: Record<string, keyof any> = {
+    const layerMap: Record<string, 'creative' | 'emotional' | 'intellectual' | 'identity' | 'aesthetic' | 'behavioral' | 'consentSettings'> = {
       identity: 'identity',
       aesthetic: 'aesthetic',
       emotional: 'emotional',
