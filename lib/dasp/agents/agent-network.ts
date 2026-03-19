@@ -4,7 +4,7 @@
  * All agents are coordinated by the DASP Orchestrator
  */
 
-import type { DeepUserProfile } from './types/deep-user-profile'
+import type { DeepUserProfile } from '@/lib/dasp/types/deep-user-profile'
 
 /**
  * Agent Interface - Base contract for all agents
