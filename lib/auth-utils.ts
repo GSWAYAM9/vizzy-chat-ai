@@ -1,9 +1,7 @@
-import { NextRequest } from 'next/server'
-
-export const getSession = async (request: NextRequest) => {
+export const getSession = async (request: any) => {
   return null
 }
 
-export const getUserId = async (request: NextRequest) => {
+export const getUserId = async (request: any) => {
   return null
 }
