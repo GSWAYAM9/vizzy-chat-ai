@@ -15,6 +15,7 @@ import {
   Loader2,
   ImagePlus,
   X,
+  Music,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -265,6 +266,66 @@ export function ChatInput({
                 </DropdownMenuItem>
               )
             })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Music quick actions */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="flex-shrink-0 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl"
+                  aria-label="Create music"
+                >
+                  <Music className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="top">Create music</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">
+              Music Creation
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onChange("Create an upbeat pop song about summer vibes")}
+              className="flex flex-col items-start gap-1 cursor-pointer"
+            >
+              <span className="text-sm font-medium">Upbeat Pop</span>
+              <span className="text-xs text-muted-foreground">Summer vibes</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onChange("Compose a calm ambient electronic track for relaxation")}
+              className="flex flex-col items-start gap-1 cursor-pointer"
+            >
+              <span className="text-sm font-medium">Ambient</span>
+              <span className="text-xs text-muted-foreground">Relaxation</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onChange("Generate a hip-hop beat with a heavy bassline")}
+              className="flex flex-col items-start gap-1 cursor-pointer"
+            >
+              <span className="text-sm font-medium">Hip-Hop Beat</span>
+              <span className="text-xs text-muted-foreground">Heavy bassline</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onChange("Create a romantic acoustic guitar song about love")}
+              className="flex flex-col items-start gap-1 cursor-pointer"
+            >
+              <span className="text-sm font-medium">Acoustic Love Song</span>
+              <span className="text-xs text-muted-foreground">Romantic vibes</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onChange("Create ")}
+              className="text-sm font-medium"
+            >
+              Custom music prompt...
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
