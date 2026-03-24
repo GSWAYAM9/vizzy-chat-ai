@@ -400,7 +400,7 @@ export function VizzyChat() {
         setUploadedImage(null)
       } else if (isMusicGen) {
         // Music generation flow
-        console.log("[v0] Starting music generation")
+        console.log("[v0] Starting music generation for prompt:", trimmedInput)
         
         const response = await fetch("/api/music/generate", {
           method: "POST",
@@ -413,9 +413,13 @@ export function VizzyChat() {
           }),
         })
 
+        console.log("[v0] Music API response status:", response.status)
+        
         const data = await response.json()
+        console.log("[v0] Music API response data:", data)
 
         if (!response.ok) {
+          console.error("[v0] Music generation error:", data.error)
           throw new Error(data.error || "Failed to generate music")
         }
 

@@ -17,6 +17,7 @@ import {
   Copy,
   Check,
 } from "lucide-react"
+import MusicPlayer from "@/components/music-player"
 import type { ChatMessage as ChatMessageType } from "@/lib/types"
 
 interface ChatMessageProps {
@@ -131,6 +132,22 @@ export function ChatMessage({ message, onImageClick, onRetry }: ChatMessageProps
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Music player */}
+        {message.music && message.music.length > 0 && (
+          <div className="flex flex-col gap-4 w-full">
+            {message.music.map((track, index) => (
+              <MusicPlayer
+                key={index}
+                generationId={track.id}
+                title={track.title}
+                audioUrl={track.audioUrl}
+                prompt={track.prompt}
+                status={track.status}
+              />
+            ))}
           </div>
         )}
 
