@@ -23,6 +23,58 @@ function generateId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 }
 
+function isMusicGenerationIntent(input: string): boolean {
+  const lowerInput = input.toLowerCase().trim()
+  
+  // Music generation keywords
+  const musicKeywords = [
+    "song", "music", "compose", "create music", "generate music", "make music",
+    "write a song", "create a song", "generate a song", "make a song",
+    "produce", "beat", "track", "audio", "sound", "melody", "tune",
+    "remix", "loop", "orchestral", "instrumental", "vocal",
+    "sing", "singing", "harmony", "chorus", "verse",
+  ]
+  
+  // Music-specific phrases
+  const musicPhrases = [
+    /create\s+a\s+(song|track|beat|music)/i,
+    /generate\s+(a\s+)?(song|track|music|beat)/i,
+    /write\s+a\s+(song|music|track)/i,
+    /compose\s+(a\s+)?(song|track|music|piece)/i,
+    /make\s+me\s+a\s+(song|track|music|beat)/i,
+    /i\s+want\s+a\s+(song|track|music)/i,
+    /i\s+need\s+a\s+(song|track|music)/i,
+    /can\s+you\s+(write|create|generate|compose|make)\s+a\s+(song|track|music)/i,
+    /remix.*song/i,
+    /continue\s+the\s+song/i,
+  ]
+  
+  // Check for music phrases
+  const hasMusicPhrase = musicPhrases.some(pattern => pattern.test(lowerInput))
+  
+  if (hasMusicPhrase) {
+    return true
+  }
+  
+  // Check for music keywords
+  const hasMusicKeyword = musicKeywords.some(keyword => lowerInput.includes(keyword))
+  
+  if (hasMusicKeyword) {
+    // Make sure it's not just mentioning music in passing
+    // e.g., "tell me about music history" should be conversational, not generation
+    const conversationKeywords = ["about", "history", "tell", "explain", "what", "why", "how"]
+    const isConversational = conversationKeywords.some(keyword => lowerInput.includes(keyword))
+    
+    if (isConversational) {
+      return false
+    }
+    
+    return true
+  }
+  
+  return false
+}
+
 function isImageGenerationIntent(input: string): boolean {
   const lowerInput = input.toLowerCase().trim()
   
@@ -262,8 +314,10 @@ export function VizzyChat() {
 
     try {
       const isImageGen = isImageGenerationIntent(trimmedInput)
+      const isMusicGen = isMusicGenerationIntent(trimmedInput)
       console.log("[v0] User input:", trimmedInput)
       console.log("[v0] Is image generation intent:", isImageGen)
+      console.log("[v0] Is music generation intent:", isMusicGen)
       
       // Check if user has uploaded an image and wants to enhance it
       const hasUploadedImage = uploadedImage !== null
@@ -344,6 +398,50 @@ export function VizzyChat() {
         )
         
         setUploadedImage(null)
+      } else if (isMusicGen) {
+        // Music generation flow
+        console.log("[v0] Starting music generation")
+        
+        const response = await fetch("/api/music/generate", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            ...(session?.access_token && { "Authorization": `Bearer ${session.access_token}` }),
+          },
+          body: JSON.stringify({
+            prompt: trimmedInput,
+          }),
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to generate music")
+        }
+
+        const musicMessage = `I'm creating a song based on your description. This typically takes 30-60 seconds. Your music will be ready soon!`
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessage.id
+              ? {
+                  ...m,
+                  content: musicMessage,
+                  music: [
+                    {
+                      id: data.generationId,
+                      title: data.title || "Untitled",
+                      audioUrl: data.audioUrl,
+                      prompt: trimmedInput,
+                      status: data.status,
+                      createdAt: Date.now(),
+                    },
+                  ],
+                  isLoading: true, // Keep loading while polling
+                }
+              : m
+          )
+        )
       } else if (isImageGen) {
         // Image generation flow
         const refinedPrompt = buildRefinedPrompt(
