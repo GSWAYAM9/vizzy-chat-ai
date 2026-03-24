@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 /**
  * Music Status Check Endpoint
  * Returns the current status of a music generation task
+ * v2.0 - Clean rebuild
  */
 export async function GET(request: NextRequest) {
   try {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 /**
  * Music Generation Test Endpoint
  * Returns a simple test response to verify the API works
+ * v2.0 - Clean rebuild
  */
 export async function POST(request: NextRequest) {
   try {
