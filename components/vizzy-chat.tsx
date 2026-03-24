@@ -402,7 +402,7 @@ export function VizzyChat() {
         // Music generation flow
         console.log("[v0] Starting music generation for prompt:", trimmedInput)
         
-        const response = await fetch("/api/music/generate", {
+        const response = await fetch("/api/music/generate-song", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json",
