@@ -1,3 +1,6 @@
+# Music API - ignore until fixed
+app/api/music/
+
 # v0 runtime files
 __v0_runtime_loader.js
 __v0_devtools.tsx
