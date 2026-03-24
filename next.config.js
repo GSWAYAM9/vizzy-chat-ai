@@ -11,6 +11,10 @@ const nextConfig = {
     root: __dirname,
     resolveAlias: {
       '@': __dirname,
+      '@/lib': `${__dirname}/lib`,
+      '@/lib/auth-utils': `${__dirname}/lib/auth-utils.ts`,
+      '@/lib/suno/music-service': `${__dirname}/lib/suno/music-service.ts`,
+      '@/lib/subscription/subscription-service': `${__dirname}/lib/subscription/subscription-service.ts`,
     },
   },
   webpack: (config, { isServer }) => {
