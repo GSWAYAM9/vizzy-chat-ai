@@ -1,13 +1,12 @@
-/**
- * Music Generation API Endpoint
- * POST /api/music/generate
- */
-
 import { NextRequest, NextResponse } from 'next/server'
 import { generateMusicWithPolling } from '@/lib/suno/music-service'
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('[MUSIC API] Received music generation request')
+    console.log('[MUSIC API] SUNO_API_KEY present:', !!process.env.SUNO_API_KEY)
+    console.log('[MUSIC API] SUNO_API_KEY length:', process.env.SUNO_API_KEY?.length || 0)
+    
     const body = await request.json()
     const { prompt } = body
 
@@ -22,12 +21,13 @@ export async function POST(request: NextRequest) {
     console.log('[MUSIC API] Generating music with prompt:', prompt.substring(0, 50))
 
     // Generate music with automatic polling
+    console.log('[MUSIC API] Calling generateMusicWithPolling...')
     const musicRecord = await generateMusicWithPolling('user_default', prompt, {
       title: prompt.substring(0, 100),
       style: 'pop',
     })
 
-    console.log('[MUSIC API] Music generation record created:', musicRecord)
+    console.log('[MUSIC API] Music generation record created:', JSON.stringify(musicRecord))
 
     return NextResponse.json(
       {

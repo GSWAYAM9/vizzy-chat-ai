@@ -36,7 +36,7 @@ export default function MusicPlayer({
 
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/music/status/${generationId}`)
+        const response = await fetch(`/api/music/status?generationId=${encodeURIComponent(generationId)}`)
         if (response.ok) {
           const data = await response.json()
           if (data.status !== currentStatus) {
