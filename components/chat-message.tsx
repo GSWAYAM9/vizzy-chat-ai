@@ -29,6 +29,13 @@ interface ChatMessageProps {
 export function ChatMessage({ message, onImageClick, onRetry }: ChatMessageProps) {
   const isUser = message.role === "user"
 
+  console.log('[CHAT MESSAGE] Rendering message:', { 
+    role: message.role, 
+    hasMusic: !!message.music, 
+    musicLength: message.music?.length,
+    music: message.music 
+  })
+
   return (
     <div
       className={cn(
