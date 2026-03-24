@@ -26,7 +26,7 @@ interface SunoClip {
   display_name: string
   image_url: string
   lyric: string
-  status: 'submitted' | 'processing' | 'completed' | 'error'
+  status: 'submitted' | 'processing' | 'completed' | 'error' | 'pending'
   error_message?: string
   user_id: string
   is_public: boolean

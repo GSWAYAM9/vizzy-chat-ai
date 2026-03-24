@@ -193,7 +193,7 @@ export async function generateMusicWithPolling(
     title?: string
     style?: string
   }
-): Promise<any> {
+): Promise<MusicGenerationRecord | any> {
   try {
     // Generate the song via Suno API
     const result = await generateSong({
@@ -224,71 +224,6 @@ export async function generateMusicWithPolling(
     }
   } catch (error) {
     console.error('[MUSIC] Error in music generation:', error)
-    throw error
-  }
-}
-): Promise<MusicGenerationRecord> {
-  try {
-    console.log('[MUSIC SERVICE] Starting music generation for user:', userId)
-    
-    // Generate song via Suno API
-    const generation = await generateSong({
-      prompt,
-      style: options?.style || 'pop',
-      title: options?.title || prompt.substring(0, 50),
-    })
-
-    const generationId = `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
-    // Try to store in database, but don't fail if it doesn't exist
-    try {
-      return await createMusicGeneration(userId, prompt, generation.id, {
-        title: options?.title,
-        style: options?.style,
-        creditsUsed: 1,
-      })
-    } catch (dbError) {
-      console.log('[MUSIC SERVICE] Database not available, using in-memory record:', dbError instanceof Error ? dbError.message : String(dbError))
-      
-      // Return a temporary record without database persistence
-      return {
-        id: generationId,
-        userId,
-        prompt,
-        title: options?.title || prompt.substring(0, 50),
-        style: options?.style || 'pop',
-        sunoSongId: generation.id,
-        status: 'processing',
-        createdAt: new Date().toISOString(),
-        creditsUsed: 1,
-      }
-    }
-  } catch (error) {
-    console.error('[MUSIC SERVICE] Error in music generation:', error)
-    throw error
-  }
-}
-): Promise<MusicGenerationRecord> {
-  try {
-    // Step 1: Submit generation request to Suno
-    console.log('[MUSIC] Starting generation for:', prompt.substring(0, 50))
-    const sunoResponse = await generateSong({
-      prompt,
-      style: options?.style,
-      title: options?.title,
-    })
-
-    // Step 2: Create database record
-    const musicRecord = await createMusicGeneration(userId, prompt, sunoResponse.id, options)
-
-    // Step 3: Poll for completion (async - don't wait)
-    pollAndUpdateMusicGeneration(musicRecord.id).catch((error) => {
-      console.error('[MUSIC] Error in background polling:', error)
-    })
-
-    return musicRecord
-  } catch (error) {
-    console.error('[MUSIC] Error generating music:', error)
     throw error
   }
 }
