@@ -6,6 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig = {
   reactStrictMode: true,
+  // Force clean build v2
   turbopack: {
     root: __dirname,
     resolveAlias: {
