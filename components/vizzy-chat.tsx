@@ -14,7 +14,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Sparkles, Plus, Sun, Moon, Trash2, Clock, LogOut, User, Zap } from "lucide-react"
+import { Sparkles, Plus, Sun, Moon, Trash2, Clock, LogOut, User, Zap, Music } from "lucide-react"
 import { useTheme } from "next-themes"
 import { imageCache } from "@/lib/image-cache"
 import type { ChatMessage as ChatMessageType } from "@/lib/types"
