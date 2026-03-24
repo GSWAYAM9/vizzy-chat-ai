@@ -4,21 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth-utils'
 import { generateMusicWithPolling } from '@/lib/suno/music-service'
-import { trackImageCreation } from '@/lib/subscription/subscription-service'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession(request)
-    if (!session?.user?.id) {
-      console.log('[MUSIC API] No session found')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
     const body = await request.json()
     const { prompt } = body
 
@@ -30,29 +19,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[MUSIC API] Generating music for user:', session.user.id)
-    console.log('[MUSIC API] Prompt:', prompt)
-
-    // Check subscription and track usage (optional - allow to fail gracefully)
-    try {
-      // Music generation uses 1 credit per song (equivalent to 20 images)
-      const usageResult = await trackImageCreation(session.user.id, 20)
-      
-      if (usageResult.status === 'limit_exceeded') {
-        console.log('[MUSIC API] User exceeded limit')
-        return NextResponse.json(
-          { error: 'Monthly image limit exceeded. Please purchase credits.' },
-          { status: 429 }
-        )
-      }
-    } catch (error) {
-      console.warn('[MUSIC API] Could not check subscription:', error)
-      // Allow music generation even if subscription check fails
-    }
+    console.log('[MUSIC API] Generating music with prompt:', prompt.substring(0, 50))
 
     // Generate music with automatic polling
-    console.log('[MUSIC API] Calling generateMusicWithPolling...')
-    const musicRecord = await generateMusicWithPolling(session.user.id, prompt, {
+    const musicRecord = await generateMusicWithPolling('user_default', prompt, {
       title: prompt.substring(0, 100),
       style: 'pop',
     })

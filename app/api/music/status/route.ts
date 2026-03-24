@@ -1,68 +1,46 @@
 /**
  * Music Status API Endpoint
- * GET /api/music/status/:generationId
+ * GET /api/music/status?generationId=<id>
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth-utils'
-import { getMusicGeneration } from '@/lib/suno/music-service'
+import { getSongStatus } from '@/lib/suno/suno-client'
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { generationId: string } }
-) {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getSession(request)
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    const generationId = params.generationId
+    const { searchParams } = new URL(request.url)
+    const generationId = searchParams.get('generationId')
 
     if (!generationId) {
       return NextResponse.json(
-        { error: 'Generation ID is required' },
+        { error: 'generationId query parameter is required' },
         { status: 400 }
       )
     }
 
-    console.log('[MUSIC STATUS] Checking status for:', generationId)
+    console.log('[MUSIC STATUS API] Checking status for generation:', generationId)
 
-    const musicRecord = await getMusicGeneration(generationId)
+    const status = await getSongStatus(generationId)
 
-    if (!musicRecord) {
+    if (!status) {
       return NextResponse.json(
-        { error: 'Music generation not found' },
+        { error: 'Generation not found or still processing' },
         { status: 404 }
-      )
-    }
-
-    // Verify the music belongs to the current user
-    if (musicRecord.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
       )
     }
 
     return NextResponse.json(
       {
-        id: musicRecord.id,
-        status: musicRecord.status,
-        title: musicRecord.title,
-        audioUrl: musicRecord.audioUrl,
-        prompt: musicRecord.prompt,
-        style: musicRecord.style,
-        completedAt: musicRecord.completedAt,
-        errorMessage: musicRecord.errorMessage,
+        generationId,
+        status: status.status,
+        audioUrl: status.audio_url,
+        title: status.title,
+        prompt: status.prompt,
       },
       { status: 200 }
     )
   } catch (error) {
-    console.error('[MUSIC STATUS] Error:', error)
+    console.error('[MUSIC STATUS API] Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to get music status' },
       { status: 500 }
