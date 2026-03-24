@@ -28,6 +28,9 @@ export default function MusicPlayer({
   const [currentAudioUrl, setCurrentAudioUrl] = useState(audioUrl)
   const [copied, setCopied] = useState(false)
 
+  console.log('[MUSIC PLAYER] Props received:', { audioUrl, title, status, generationId })
+  console.log('[MUSIC PLAYER] Current state:', { currentStatus, currentAudioUrl })
+
   // Poll for status updates
   useEffect(() => {
     if (currentStatus === 'completed' || currentStatus === 'failed') {
@@ -36,7 +39,7 @@ export default function MusicPlayer({
 
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/api/music/status/${generationId}`)
+        const response = await fetch(`/api/music/status?generationId=${encodeURIComponent(generationId)}`)
         if (response.ok) {
           const data = await response.json()
           if (data.status !== currentStatus) {
@@ -81,7 +84,8 @@ export default function MusicPlayer({
   }
 
   const getStatusText = () => {
-    switch (currentStatus) {
+    const normalized = typeof currentStatus === 'string' ? currentStatus.toLowerCase().trim() : ''
+    switch (normalized) {
       case 'pending':
         return 'Queued...'
       case 'processing':
@@ -91,7 +95,8 @@ export default function MusicPlayer({
       case 'failed':
         return 'Generation failed'
       default:
-        return 'Unknown'
+        console.warn('[MUSIC PLAYER] Unexpected status value:', currentStatus)
+        return currentStatus && typeof currentStatus === 'string' ? currentStatus : 'Unknown'
     }
   }
 

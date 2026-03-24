@@ -1,9 +1,10 @@
 /**
  * Suno API Client
  * Handles music generation via Suno API
+ * Documentation: https://docs.sunoapi.org/suno-api/generate-music
  */
 
-const SUNO_API_BASE = 'https://api.suno.ai'
+const SUNO_API_BASE = 'https://api.sunoapi.org'
 const SUNO_API_KEY = process.env.SUNO_API_KEY
 
 interface SunoGenerateRequest {
@@ -25,7 +26,7 @@ interface SunoClip {
   display_name: string
   image_url: string
   lyric: string
-  status: 'submitted' | 'processing' | 'completed' | 'error'
+  status: 'submitted' | 'processing' | 'completed' | 'error' | 'pending'
   error_message?: string
   user_id: string
   is_public: boolean
@@ -39,81 +40,71 @@ interface SunoClip {
 
 /**
  * Generate a song using Suno API
+ * Uses the v1 API endpoint with required parameters
  */
 export async function generateSong(request: SunoGenerateRequest): Promise<{ id: string; status: string }> {
   try {
     if (!SUNO_API_KEY) {
+      console.error('[SUNO] ERROR: SUNO_API_KEY is not configured in environment variables')
       throw new Error('SUNO_API_KEY is not configured')
     }
 
+    console.log('[SUNO] API Key present (length:', SUNO_API_KEY.length, ')')
     console.log('[SUNO] Generating song with prompt:', request.prompt.substring(0, 50))
 
-    // Try the standard Suno API endpoint
-    let response = await fetch(`${SUNO_API_BASE}/api/generate`, {
+    // Use the v1 endpoint with required parameters
+    // According to API docs, for non-custom mode: only prompt is required
+    const requestBody = {
+      customMode: false, // Use non-custom mode (simpler)
+      instrumental: false, // Generate with lyrics
+      model: 'V4_5ALL', // Latest model
+      prompt: request.prompt, // This is the only required field in non-custom mode
+      callBackUrl: 'https://api.example.com/callback', // Required by API but we'll poll instead
+    }
+
+    console.log('[SUNO] Request body:', JSON.stringify(requestBody).substring(0, 200))
+
+    const response = await fetch(`${SUNO_API_BASE}/api/v1/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${SUNO_API_KEY}`,
       },
-      body: JSON.stringify({
-        prompt: request.prompt,
-        style: request.style || 'pop',
-        tags: request.tags || [],
-        title: request.title || '',
-        make_instrumental: false,
-        continue_at: request.continue_at,
-        continue_song_id: request.continue_song_id,
-      }),
+      body: JSON.stringify(requestBody),
     })
 
-    if (!response.ok && response.status !== 404) {
-      const error = await response.text()
-      console.error('[SUNO] Generation failed:', error)
-      throw new Error(`Suno API error: ${response.status}`)
-    }
-
-    // If 404, try the v2 endpoint as fallback
-    if (response.status === 404) {
-      console.log('[SUNO] Falling back to /api/generate/v2 endpoint')
-      response = await fetch(`${SUNO_API_BASE}/api/generate/v2`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${SUNO_API_KEY}`,
-        },
-        body: JSON.stringify({
-          prompt: request.prompt,
-          style: request.style || 'pop',
-          tags: request.tags || [],
-          title: request.title || '',
-          make_instrumental: false,
-          continue_at: request.continue_at,
-          continue_song_id: request.continue_song_id,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.text()
-        console.error('[SUNO] V2 Generation failed:', error)
-        throw new Error(`Suno API v2 error: ${response.status}`)
-      }
-    }
+    console.log('[SUNO] API Response Status:', response.status, response.statusText)
 
     const data = await response.json()
-    console.log('[SUNO] Generation started:', data.id || data.clip_id)
+    console.log('[SUNO] API Response:', JSON.stringify(data).substring(0, 300))
+
+    if (!response.ok) {
+      const error = data.msg || await response.text()
+      console.error('[SUNO] Generation failed:', error)
+      throw new Error(`Suno API error: ${response.status} - ${error}`)
+    }
+
+    const taskId = data.data?.taskId
+    if (!taskId) {
+      console.error('[SUNO] No taskId in response:', data)
+      throw new Error('No taskId returned from Suno API')
+    }
+
+    console.log('[SUNO] Generation task started with ID:', taskId)
 
     return {
-      id: data.id || data.clip_id || 'temp_' + Date.now(),
+      id: taskId,
       status: 'processing',
     }
   } catch (error) {
-    console.error('[SUNO] Error generating song:', error)
+    console.error('[SUNO] Error generating song:', error instanceof Error ? error.message : String(error))
     throw error
   }
 }
 
 /**
  * Poll for song generation status
+ * Uses the /api/v1/generate/record-info endpoint
  */
 export async function getSongStatus(songId: string): Promise<SunoClip | null> {
   try {
@@ -121,22 +112,103 @@ export async function getSongStatus(songId: string): Promise<SunoClip | null> {
       throw new Error('SUNO_API_KEY is not configured')
     }
 
-    const response = await fetch(`${SUNO_API_BASE}/api/clips/${songId}`, {
+    console.log('[SUNO] Checking status for task:', songId)
+
+    const response = await fetch(`${SUNO_API_BASE}/api/v1/generate/record-info?taskId=${encodeURIComponent(songId)}`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${SUNO_API_KEY}`,
       },
     })
 
+    console.log('[SUNO] Status check response:', response.status)
+
     if (!response.ok) {
-      console.warn('[SUNO] Status check failed:', response.status)
+      const errorData = await response.json().catch(() => ({}))
+      console.warn('[SUNO] Status check failed:', response.status, errorData.msg)
       return null
     }
 
-    const data = await response.json()
-    console.log('[SUNO] Status for', songId, ':', data.status)
+    const apiResponse = await response.json()
+    console.log('[SUNO] Status response:', JSON.stringify(apiResponse).substring(0, 300))
 
-    return data as SunoClip
+    const taskStatus = apiResponse.data?.status
+    console.log('[SUNO] Task status:', taskStatus)
+
+    // Map API status to our format
+    if (taskStatus === 'SUCCESS' || taskStatus === 'FIRST_SUCCESS') {
+      // Extract the first audio clip from the response
+      const sunoData = apiResponse.data?.response?.sunoData?.[0]
+      if (sunoData) {
+        return {
+          id: sunoData.id,
+          title: sunoData.title,
+          prompt: sunoData.prompt,
+          gpt_description_prompt: '',
+          audio_url: sunoData.audioUrl,
+          video_url: '',
+          display_name: sunoData.title,
+          image_url: sunoData.imageUrl,
+          lyric: sunoData.prompt,
+          status: 'completed',
+          user_id: '',
+          is_public: false,
+          created_at: sunoData.createTime,
+          metadata: {
+            duration: sunoData.duration || 0,
+            tags: (sunoData.tags || '').split(','),
+          },
+        }
+      }
+    }
+
+    if (taskStatus === 'PENDING' || taskStatus === 'TEXT_SUCCESS') {
+      return {
+        id: songId,
+        title: '',
+        prompt: '',
+        gpt_description_prompt: '',
+        audio_url: '',
+        video_url: '',
+        display_name: '',
+        image_url: '',
+        lyric: '',
+        status: 'processing',
+        user_id: '',
+        is_public: false,
+        created_at: new Date().toISOString(),
+        metadata: {
+          duration: 0,
+          tags: [],
+        },
+      }
+    }
+
+    if (taskStatus === 'CREATE_TASK_FAILED' || taskStatus === 'GENERATE_AUDIO_FAILED' || taskStatus === 'SENSITIVE_WORD_ERROR') {
+      const errorMsg = apiResponse.data?.errorMessage || 'Generation failed'
+      return {
+        id: songId,
+        title: '',
+        prompt: '',
+        gpt_description_prompt: '',
+        audio_url: '',
+        video_url: '',
+        display_name: '',
+        image_url: '',
+        lyric: '',
+        status: 'error',
+        error_message: errorMsg,
+        user_id: '',
+        is_public: false,
+        created_at: new Date().toISOString(),
+        metadata: {
+          duration: 0,
+          tags: [],
+        },
+      }
+    }
+
+    return null
   } catch (error) {
     console.error('[SUNO] Error getting song status:', error)
     return null
