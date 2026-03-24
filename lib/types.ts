@@ -6,12 +6,22 @@ export interface GeneratedImage {
   uploadedAt?: number
 }
 
+export interface MusicTrack {
+  id: string
+  title: string
+  audioUrl?: string
+  prompt: string
+  status: 'pending' | 'processing' | 'completed' | 'failed'
+  createdAt: number
+}
+
 export interface ChatMessage {
   id: string
   role: "user" | "assistant"
   content: string
   images?: GeneratedImage[]
   uploadedImages?: UploadedImage[]
+  music?: MusicTrack[]
   isLoading?: boolean
   error?: string
   timestamp: number
