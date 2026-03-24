@@ -401,7 +401,6 @@ export function VizzyChat() {
       } else if (isMusicGen) {
         // Music generation flow
         console.log("[v0] Starting music generation for prompt:", trimmedInput)
-        
         const response = await fetch("/api/music/generate", {
           method: "POST",
           headers: { 

@@ -1,0 +1,4 @@
+app/api/music/**
+.next
+node_modules
+*.log

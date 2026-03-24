@@ -1,3 +1,7 @@
+# Music API - ignore until fixed (prevent git from serving broken files)
+app/api/music/**
+app/api/music/
+
 # v0 runtime files
 __v0_runtime_loader.js
 __v0_devtools.tsx
