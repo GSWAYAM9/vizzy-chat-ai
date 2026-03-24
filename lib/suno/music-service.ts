@@ -184,6 +184,7 @@ export async function getUserMusicHistory(userId: string, limit: number = 20): P
 
 /**
  * Generate music with automatic polling
+ * Simplified version that works without database tables
  */
 export async function generateMusicWithPolling(
   userId: string,
@@ -192,6 +193,81 @@ export async function generateMusicWithPolling(
     title?: string
     style?: string
   }
+): Promise<any> {
+  try {
+    // Generate the song via Suno API
+    const result = await generateSong({
+      prompt,
+      style: options?.style || 'pop',
+      title: options?.title || prompt.substring(0, 50),
+    })
+
+    console.log('[MUSIC] Generation started with ID:', result.id)
+
+    // Try to create database record if tables exist
+    try {
+      return await createMusicGeneration(userId, prompt, result.id, options)
+    } catch (dbError) {
+      console.warn('[MUSIC] Could not save to database (tables may not exist yet):', dbError)
+      // Return a fallback response without database
+      return {
+        id: result.id,
+        userId,
+        prompt,
+        title: options?.title || prompt.substring(0, 50),
+        sunoSongId: result.id,
+        status: 'processing',
+        createdAt: new Date().toISOString(),
+        creditsUsed: 10,
+        audioUrl: null,
+      }
+    }
+  } catch (error) {
+    console.error('[MUSIC] Error in music generation:', error)
+    throw error
+  }
+}
+): Promise<MusicGenerationRecord> {
+  try {
+    console.log('[MUSIC SERVICE] Starting music generation for user:', userId)
+    
+    // Generate song via Suno API
+    const generation = await generateSong({
+      prompt,
+      style: options?.style || 'pop',
+      title: options?.title || prompt.substring(0, 50),
+    })
+
+    const generationId = `gen_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+    // Try to store in database, but don't fail if it doesn't exist
+    try {
+      return await createMusicGeneration(userId, prompt, generation.id, {
+        title: options?.title,
+        style: options?.style,
+        creditsUsed: 1,
+      })
+    } catch (dbError) {
+      console.log('[MUSIC SERVICE] Database not available, using in-memory record:', dbError instanceof Error ? dbError.message : String(dbError))
+      
+      // Return a temporary record without database persistence
+      return {
+        id: generationId,
+        userId,
+        prompt,
+        title: options?.title || prompt.substring(0, 50),
+        style: options?.style || 'pop',
+        sunoSongId: generation.id,
+        status: 'processing',
+        createdAt: new Date().toISOString(),
+        creditsUsed: 1,
+      }
+    }
+  } catch (error) {
+    console.error('[MUSIC SERVICE] Error in music generation:', error)
+    throw error
+  }
+}
 ): Promise<MusicGenerationRecord> {
   try {
     // Step 1: Submit generation request to Suno

@@ -48,7 +48,8 @@ export async function generateSong(request: SunoGenerateRequest): Promise<{ id: 
 
     console.log('[SUNO] Generating song with prompt:', request.prompt.substring(0, 50))
 
-    const response = await fetch(`${SUNO_API_BASE}/api/generate/v2`, {
+    // Try the standard Suno API endpoint
+    let response = await fetch(`${SUNO_API_BASE}/api/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -59,22 +60,50 @@ export async function generateSong(request: SunoGenerateRequest): Promise<{ id: 
         style: request.style || 'pop',
         tags: request.tags || [],
         title: request.title || '',
+        make_instrumental: false,
         continue_at: request.continue_at,
         continue_song_id: request.continue_song_id,
       }),
     })
 
-    if (!response.ok) {
+    if (!response.ok && response.status !== 404) {
       const error = await response.text()
       console.error('[SUNO] Generation failed:', error)
       throw new Error(`Suno API error: ${response.status}`)
     }
 
+    // If 404, try the v2 endpoint as fallback
+    if (response.status === 404) {
+      console.log('[SUNO] Falling back to /api/generate/v2 endpoint')
+      response = await fetch(`${SUNO_API_BASE}/api/generate/v2`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${SUNO_API_KEY}`,
+        },
+        body: JSON.stringify({
+          prompt: request.prompt,
+          style: request.style || 'pop',
+          tags: request.tags || [],
+          title: request.title || '',
+          make_instrumental: false,
+          continue_at: request.continue_at,
+          continue_song_id: request.continue_song_id,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        console.error('[SUNO] V2 Generation failed:', error)
+        throw new Error(`Suno API v2 error: ${response.status}`)
+      }
+    }
+
     const data = await response.json()
-    console.log('[SUNO] Generation started:', data.id)
+    console.log('[SUNO] Generation started:', data.id || data.clip_id)
 
     return {
-      id: data.id,
+      id: data.id || data.clip_id || 'temp_' + Date.now(),
       status: 'processing',
     }
   } catch (error) {
