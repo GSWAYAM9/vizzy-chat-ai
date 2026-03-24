@@ -1,25 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server'
-
-export async function GET(request: NextRequest) {
+export async function GET(request) {
   try {
-    const { searchParams } = new URL(request.url)
-    const generationId = searchParams.get('generationId')
+    const url = new URL(request.url)
+    const generationId = url.searchParams.get('generationId')
+
+    console.log('[MUSIC-STATUS] Check for:', generationId)
 
     if (!generationId) {
-      return NextResponse.json({ error: 'generationId required' }, { status: 400 })
+      return new Response(JSON.stringify({ error: 'generationId required' }), { status: 400 })
     }
 
-    console.log('[MUSIC-STATUS] Checking:', generationId)
-
-    return NextResponse.json({
+    const response = {
       generationId: generationId,
       status: 'completed',
       audioUrl: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==',
       title: 'Generated Music',
-      prompt: 'Music generation test'
-    }, { status: 200 })
+      prompt: 'Music'
+    }
+    
+    return new Response(JSON.stringify(response), { status: 200, headers: { 'Content-Type': 'application/json' } })
   } catch (error) {
     console.error('[MUSIC-STATUS] Error:', error)
-    return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    return new Response(JSON.stringify({ error: 'Failed' }), { status: 500 })
   }
 }

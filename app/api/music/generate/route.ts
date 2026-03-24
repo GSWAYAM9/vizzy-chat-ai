@@ -1,25 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server'
-
-export async function POST(request: NextRequest) {
+export async function POST(request) {
   try {
     const body = await request.json()
-    const { prompt } = body
+    const prompt = body?.prompt
 
     if (!prompt) {
-      return NextResponse.json({ error: 'Prompt required' }, { status: 400 })
+      return new Response(JSON.stringify({ error: 'Prompt required' }), { status: 400 })
     }
 
-    console.log('[MUSIC] Generation request:', prompt)
+    console.log('[MUSIC] Generation:', prompt)
     
-    return NextResponse.json({
+    const response = {
       generationId: 'test_' + Date.now(),
       title: prompt.substring(0, 100),
       audioUrl: 'data:audio/wav;base64,UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAAB9AAACABAAZGF0YQIAAAAAAA==',
       status: 'completed',
       prompt: prompt,
-    }, { status: 201 })
+    }
+    
+    return new Response(JSON.stringify(response), { status: 201, headers: { 'Content-Type': 'application/json' } })
   } catch (error) {
     console.error('[MUSIC] Error:', error)
-    return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    return new Response(JSON.stringify({ error: 'Failed' }), { status: 500 })
   }
 }
