@@ -12,7 +12,7 @@ export async function GET(
   { params }: { params: { generationId: string } }
 ) {
   try {
-    const session = await getSession()
+    const session = await getSession(request)
     if (!session?.user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },

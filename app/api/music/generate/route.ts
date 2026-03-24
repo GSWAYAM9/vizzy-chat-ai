@@ -10,7 +10,7 @@ import { trackImageCreation } from '@/lib/subscription/subscription-service'
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession()
+    const session = await getSession(request)
     if (!session?.user?.id) {
       console.log('[MUSIC API] No session found')
       return NextResponse.json(
