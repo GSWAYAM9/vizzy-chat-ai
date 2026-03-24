@@ -398,9 +398,9 @@ export function VizzyChat() {
         )
         
         setUploadedImage(null)
-      } else if (isMusicGen) {
-        // Music generation flow
-        console.log("[v0] Starting music generation for prompt:", trimmedInput)
+      } else if (false) {
+        // Music generation disabled due to build issues
+        // TODO: Re-enable once music API is properly configured
         
         const response = await fetch("/api/music/generate", {
           method: "POST",
