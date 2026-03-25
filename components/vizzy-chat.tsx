@@ -24,108 +24,50 @@ function generateId() {
 }
 
 function isMusicGenerationIntent(input: string): boolean {
-  const lowerInput = input.toLowerCase().trim()
-  console.log("[v0] isMusicGenerationIntent checking input:", lowerInput)
-  
-  // Music generation keywords - expanded with common typos and variations
-  const musicKeywords = [
-    "song", "music", "muisc", "msuic", // common typos
-    "compose", "create music", "generate music", "make music",
-    "write a song", "create a song", "generate a song", "make a song",
-    "produce", "beat", "track", "audio", "sound", "melody", "tune",
-    "remix", "loop", "orchestral", "instrumental", "vocal",
-    "sing", "singing", "harmony", "chorus", "verse",
-  ]
-  
-  // Music-specific phrases - expanded to catch typos
-  const musicPhrases = [
-    /create\s+a\s+(song|track|beat|music|muisc)/i,
-    /generate\s+(a\s+)?(song|track|music|muisc|beat)/i,
-    /write\s+a\s+(song|music|muisc|track)/i,
-    /compose\s+(a\s+)?(song|track|music|muisc|piece)/i,
-    /make\s+me\s+a\s+(song|track|music|muisc|beat)/i,
-    /i\s+want\s+a\s+(song|track|music|muisc)/i,
-    /i\s+need\s+a\s+(song|track|music|muisc)/i,
-    /can\s+you\s+(write|create|generate|compose|make)\s+a\s+(song|track|music|muisc)/i,
-    /remix.*song/i,
-    /continue\s+the\s+song/i,
-  ]
-  
-  // Check for music phrases
-  const hasMusicPhrase = musicPhrases.some(pattern => {
-    const matches = pattern.test(lowerInput)
-    console.log("[v0] Testing pattern", pattern, ":", matches, "for input:", lowerInput)
-    return matches
-  })
-  console.log("[v0] hasMusicPhrase result:", hasMusicPhrase)
-  
-  if (hasMusicPhrase) {
-    console.log("[v0] MATCHED music phrase, returning true")
-    return true
-  }
-  
-  // Check for music keywords (including typos)
-  const hasMusicKeyword = musicKeywords.some(keyword => {
-    const includes = lowerInput.includes(keyword)
-    if (includes) console.log("[v0] Found keyword:", keyword)
-    return includes
-  })
-  console.log("[v0] hasMusicKeyword result:", hasMusicKeyword)
-  
-  if (hasMusicKeyword) {
-    // Make sure it's not just mentioning music in passing
-    // e.g., "tell me about music history" should be conversational, not generation
-    const conversationKeywords = ["about", "history", "tell", "explain", "what", "why", "how"]
-    const isConversational = conversationKeywords.some(keyword => lowerInput.includes(keyword))
+  try {
+    const lowerInput = input.toLowerCase().trim()
     
-    if (isConversational) {
-      console.log("[v0] Keyword matched but is conversational, returning false")
-      return false
+    // Simple music keyword check
+    const musicKeywords = ["song", "music", "muisc", "msuic", "compose", "beat", "track", "melody", "create a song", "create music", "generate music"]
+    
+    for (const keyword of musicKeywords) {
+      if (lowerInput.includes(keyword)) {
+        console.log("[v0] Music keyword detected:", keyword)
+        return true
+      }
     }
     
-    console.log("[v0] MATCHED music keyword, returning true")
-    return true
+    return false
+  } catch (error) {
+    console.error("[v0] Error in isMusicGenerationIntent:", error)
+    return false
   }
-  
-  console.log("[v0] No music intent detected, returning false")
-  return false
 }
 
 function isImageGenerationIntent(input: string): boolean {
-  const lowerInput = input.toLowerCase().trim()
-  
-  // IMPORTANT: Check for music keywords FIRST - music takes priority over image
-  const musicKeywords = ["song", "music", "muisc", "msuic", "compose", "beat", "track", "melody", "tune", "remix", "orchestral", "instrumental", "vocal", "sing", "harmony", "chorus", "verse"]
-  const hasMusicKeyword = musicKeywords.some(keyword => lowerInput.includes(keyword))
-  if (hasMusicKeyword) {
-    return false // This is music, not image - skip image generation
+  try {
+    const lowerInput = input.toLowerCase().trim()
+    
+    // FIRST: Check if this is music - music takes priority
+    const musicKeywords = ["song", "music", "muisc", "msuic", "beat", "compose", "melody", "track"]
+    if (musicKeywords.some(kw => lowerInput.includes(kw))) {
+      console.log("[v0] Music keywords detected, skipping image generation")
+      return false
+    }
+    
+    // Then check for image keywords
+    const imageKeywords = ["generate", "create", "make", "draw", "paint", "design", "visualize", "picture", "image", "photo", "artwork"]
+    return imageKeywords.some(kw => lowerInput.includes(kw))
+  } catch (error) {
+    console.error("[v0] Error in isImageGenerationIntent:", error)
+    return false
   }
-  
-  // Strong image generation keywords - these clearly indicate image creation
-  const strongKeywords = [
-    "generate", "create", "make", "draw", "paint", "design", "illustrate",
-    "render", "show me", "imagine", "visualize", "picture of",
-    "image of", "photo of", "artwork of", "concept art",
-    "i want", "i need", "can you", "please make", "please generate",
-    "please create", "please draw",
-  ]
-  
-  // Phrases that indicate generating variations of previous images
-  const variationPhrases = [
-    /^(ok|okay|alright|sure)\s+(let|lets|let's).*generate/i,
-    /^(let|lets|let's).*generate/i,
-    /generate\s+that/i,
-    /make\s+that/i,
-    /create\s+that/i,
-  ]
-  
-  // Short positive responses that should trigger image generation (for iterating on previous images)
-  const positiveAffirmations = ["yup", "yeah", "yes", "ok", "okay", "good", "great", "perfect", "excellent", "love it", "nice", "cool", "rad", "awesome", "amazing"]
-  
-  // Check if input is a short positive affirmation
-  if (positiveAffirmations.includes(lowerInput)) {
-    return true
-  }
+}
+
+function isConversational(input: string): boolean {
+  const conversationKeywords = ["tell me", "explain", "what is", "why", "how", "about", "history"]
+  return conversationKeywords.some(kw => input.toLowerCase().includes(kw))
+}
   
   // Check for variation phrases like "ok lets generate that"
   if (variationPhrases.some(pattern => pattern.test(lowerInput))) {
@@ -426,6 +368,7 @@ export function VizzyChat() {
         console.log("[v0] Starting music generation for prompt:", trimmedInput)
         
         let response
+        let data
         let retries = 3
         let lastError
         
@@ -446,7 +389,6 @@ export function VizzyChat() {
             const responseText = await response.text()
             console.log("[v0] Music API raw response:", responseText.substring(0, 200))
             
-            let data
             try {
               data = JSON.parse(responseText)
             } catch (e) {
@@ -471,7 +413,7 @@ export function VizzyChat() {
           }
         }
         
-        if (!response) {
+        if (!data) {
           throw lastError || new Error("Failed to generate music after retries")
         }
 
@@ -493,7 +435,7 @@ export function VizzyChat() {
                       createdAt: Date.now(),
                     },
                   ],
-                  isLoading: true, // Keep loading while polling
+                  isLoading: true,
                 }
               : m
           )
