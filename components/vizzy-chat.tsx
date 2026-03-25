@@ -52,17 +52,25 @@ function isMusicGenerationIntent(input: string): boolean {
   ]
   
   // Check for music phrases
-  const hasMusicPhrase = musicPhrases.some(pattern => pattern.test(lowerInput))
-  console.log("[v0] hasMusicPhrase:", hasMusicPhrase)
+  const hasMusicPhrase = musicPhrases.some(pattern => {
+    const matches = pattern.test(lowerInput)
+    console.log("[v0] Testing pattern", pattern, ":", matches, "for input:", lowerInput)
+    return matches
+  })
+  console.log("[v0] hasMusicPhrase result:", hasMusicPhrase)
   
   if (hasMusicPhrase) {
-    console.log("[v0] Matched music phrase, returning true")
+    console.log("[v0] MATCHED music phrase, returning true")
     return true
   }
   
   // Check for music keywords (including typos)
-  const hasMusicKeyword = musicKeywords.some(keyword => lowerInput.includes(keyword))
-  console.log("[v0] hasMusicKeyword:", hasMusicKeyword)
+  const hasMusicKeyword = musicKeywords.some(keyword => {
+    const includes = lowerInput.includes(keyword)
+    if (includes) console.log("[v0] Found keyword:", keyword)
+    return includes
+  })
+  console.log("[v0] hasMusicKeyword result:", hasMusicKeyword)
   
   if (hasMusicKeyword) {
     // Make sure it's not just mentioning music in passing
@@ -75,7 +83,7 @@ function isMusicGenerationIntent(input: string): boolean {
       return false
     }
     
-    console.log("[v0] Matched music keyword, returning true")
+    console.log("[v0] MATCHED music keyword, returning true")
     return true
   }
   
