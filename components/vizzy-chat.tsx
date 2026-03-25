@@ -426,6 +426,7 @@ export function VizzyChat() {
         console.log("[v0] Starting music generation for prompt:", trimmedInput)
         
         let response
+        let data
         let retries = 3
         let lastError
         
@@ -446,7 +447,6 @@ export function VizzyChat() {
             const responseText = await response.text()
             console.log("[v0] Music API raw response:", responseText.substring(0, 200))
             
-            let data
             try {
               data = JSON.parse(responseText)
             } catch (e) {
@@ -471,7 +471,7 @@ export function VizzyChat() {
           }
         }
         
-        if (!response) {
+        if (!data) {
           throw lastError || new Error("Failed to generate music after retries")
         }
 
@@ -493,7 +493,7 @@ export function VizzyChat() {
                       createdAt: Date.now(),
                     },
                   ],
-                  isLoading: true, // Keep loading while polling
+                  isLoading: true,
                 }
               : m
           )
