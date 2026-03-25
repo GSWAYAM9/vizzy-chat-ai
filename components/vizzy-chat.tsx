@@ -413,8 +413,16 @@ export function VizzyChat() {
         })
 
         console.log("[v0] Music API response status:", response.status)
+        const responseText = await response.text()
+        console.log("[v0] Music API raw response:", responseText)
         
-        const data = await response.json()
+        let data
+        try {
+          data = JSON.parse(responseText)
+        } catch (e) {
+          console.error("[v0] Failed to parse music API response as JSON:", e, "Response was:", responseText)
+          throw new Error("Music API returned invalid JSON")
+        }
         console.log("[v0] Music API response data:", data)
 
         if (!response.ok) {
