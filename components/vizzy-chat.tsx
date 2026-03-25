@@ -337,10 +337,11 @@ export function VizzyChat() {
 
     try {
       const isImageGen = isImageGenerationIntent(trimmedInput)
-      const isMusicGen = isMusicGenerationIntent(trimmedInput)
+      // Music generation disabled due to external service integration issues
+      const isMusicGen = false
       console.log("[v0] User input:", trimmedInput)
       console.log("[v0] Is image generation intent:", isImageGen)
-      console.log("[v0] Is music generation intent:", isMusicGen)
+      console.log("[v0] Is music generation intent: disabled")
       
       // Check if user has uploaded an image and wants to enhance it
       const hasUploadedImage = uploadedImage !== null
