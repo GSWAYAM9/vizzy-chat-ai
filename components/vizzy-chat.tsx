@@ -26,25 +26,26 @@ function generateId() {
 function isMusicGenerationIntent(input: string): boolean {
   const lowerInput = input.toLowerCase().trim()
   
-  // Music generation keywords
+  // Music generation keywords - expanded with common typos and variations
   const musicKeywords = [
-    "song", "music", "compose", "create music", "generate music", "make music",
+    "song", "music", "muisc", "msuic", // common typos
+    "compose", "create music", "generate music", "make music",
     "write a song", "create a song", "generate a song", "make a song",
     "produce", "beat", "track", "audio", "sound", "melody", "tune",
     "remix", "loop", "orchestral", "instrumental", "vocal",
     "sing", "singing", "harmony", "chorus", "verse",
   ]
   
-  // Music-specific phrases
+  // Music-specific phrases - expanded to catch typos
   const musicPhrases = [
-    /create\s+a\s+(song|track|beat|music)/i,
-    /generate\s+(a\s+)?(song|track|music|beat)/i,
-    /write\s+a\s+(song|music|track)/i,
-    /compose\s+(a\s+)?(song|track|music|piece)/i,
-    /make\s+me\s+a\s+(song|track|music|beat)/i,
-    /i\s+want\s+a\s+(song|track|music)/i,
-    /i\s+need\s+a\s+(song|track|music)/i,
-    /can\s+you\s+(write|create|generate|compose|make)\s+a\s+(song|track|music)/i,
+    /create\s+a\s+(song|track|beat|music|muisc)/i,
+    /generate\s+(a\s+)?(song|track|music|muisc|beat)/i,
+    /write\s+a\s+(song|music|muisc|track)/i,
+    /compose\s+(a\s+)?(song|track|music|muisc|piece)/i,
+    /make\s+me\s+a\s+(song|track|music|muisc|beat)/i,
+    /i\s+want\s+a\s+(song|track|music|muisc)/i,
+    /i\s+need\s+a\s+(song|track|music|muisc)/i,
+    /can\s+you\s+(write|create|generate|compose|make)\s+a\s+(song|track|music|muisc)/i,
     /remix.*song/i,
     /continue\s+the\s+song/i,
   ]
@@ -56,7 +57,7 @@ function isMusicGenerationIntent(input: string): boolean {
     return true
   }
   
-  // Check for music keywords
+  // Check for music keywords (including typos)
   const hasMusicKeyword = musicKeywords.some(keyword => lowerInput.includes(keyword))
   
   if (hasMusicKeyword) {
@@ -413,8 +414,16 @@ export function VizzyChat() {
         })
 
         console.log("[v0] Music API response status:", response.status)
+        const responseText = await response.text()
+        console.log("[v0] Music API raw response:", responseText)
         
-        const data = await response.json()
+        let data
+        try {
+          data = JSON.parse(responseText)
+        } catch (e) {
+          console.error("[v0] Failed to parse music API response as JSON:", e, "Response was:", responseText)
+          throw new Error("Music API returned invalid JSON")
+        }
         console.log("[v0] Music API response data:", data)
 
         if (!response.ok) {
