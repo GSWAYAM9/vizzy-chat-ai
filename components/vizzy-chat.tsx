@@ -25,6 +25,7 @@ function generateId() {
 
 function isMusicGenerationIntent(input: string): boolean {
   const lowerInput = input.toLowerCase().trim()
+  console.log("[v0] isMusicGenerationIntent checking input:", lowerInput)
   
   // Music generation keywords - expanded with common typos and variations
   const musicKeywords = [
@@ -52,13 +53,16 @@ function isMusicGenerationIntent(input: string): boolean {
   
   // Check for music phrases
   const hasMusicPhrase = musicPhrases.some(pattern => pattern.test(lowerInput))
+  console.log("[v0] hasMusicPhrase:", hasMusicPhrase)
   
   if (hasMusicPhrase) {
+    console.log("[v0] Matched music phrase, returning true")
     return true
   }
   
   // Check for music keywords (including typos)
   const hasMusicKeyword = musicKeywords.some(keyword => lowerInput.includes(keyword))
+  console.log("[v0] hasMusicKeyword:", hasMusicKeyword)
   
   if (hasMusicKeyword) {
     // Make sure it's not just mentioning music in passing
@@ -67,12 +71,17 @@ function isMusicGenerationIntent(input: string): boolean {
     const isConversational = conversationKeywords.some(keyword => lowerInput.includes(keyword))
     
     if (isConversational) {
+      console.log("[v0] Keyword matched but is conversational, returning false")
       return false
     }
     
+    console.log("[v0] Matched music keyword, returning true")
     return true
   }
   
+  console.log("[v0] No music intent detected, returning false")
+  return false
+}
   return false
 }
 
