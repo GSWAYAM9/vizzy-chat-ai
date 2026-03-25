@@ -86,6 +86,13 @@ function isMusicGenerationIntent(input: string): boolean {
 function isImageGenerationIntent(input: string): boolean {
   const lowerInput = input.toLowerCase().trim()
   
+  // IMPORTANT: Check for music keywords FIRST - music takes priority over image
+  const musicKeywords = ["song", "music", "muisc", "msuic", "compose", "beat", "track", "melody", "tune", "remix", "orchestral", "instrumental", "vocal", "sing", "harmony", "chorus", "verse"]
+  const hasMusicKeyword = musicKeywords.some(keyword => lowerInput.includes(keyword))
+  if (hasMusicKeyword) {
+    return false // This is music, not image - skip image generation
+  }
+  
   // Strong image generation keywords - these clearly indicate image creation
   const strongKeywords = [
     "generate", "create", "make", "draw", "paint", "design", "illustrate",
