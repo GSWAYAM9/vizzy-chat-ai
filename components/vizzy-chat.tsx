@@ -424,33 +424,55 @@ export function VizzyChat() {
       } else if (isMusicGen) {
         // Music generation flow
         console.log("[v0] Starting music generation for prompt:", trimmedInput)
-        const response = await fetch("/api/music/generate", {
-          method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            ...(session?.access_token && { "Authorization": `Bearer ${session.access_token}` }),
-          },
-          body: JSON.stringify({
-            prompt: trimmedInput,
-          }),
-        })
-
-        console.log("[v0] Music API response status:", response.status)
-        const responseText = await response.text()
-        console.log("[v0] Music API raw response:", responseText)
         
-        let data
-        try {
-          data = JSON.parse(responseText)
-        } catch (e) {
-          console.error("[v0] Failed to parse music API response as JSON:", e, "Response was:", responseText)
-          throw new Error("Music API returned invalid JSON")
-        }
-        console.log("[v0] Music API response data:", data)
+        let response
+        let retries = 3
+        let lastError
+        
+        while (retries > 0) {
+          try {
+            response = await fetch("/api/music/generate", {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+                ...(session?.access_token && { "Authorization": `Bearer ${session.access_token}` }),
+              },
+              body: JSON.stringify({
+                prompt: trimmedInput,
+              }),
+            })
+            
+            console.log("[v0] Music API response status:", response.status)
+            const responseText = await response.text()
+            console.log("[v0] Music API raw response:", responseText.substring(0, 200))
+            
+            let data
+            try {
+              data = JSON.parse(responseText)
+            } catch (e) {
+              console.error("[v0] Failed to parse music API response as JSON:", e)
+              throw new Error("Music API returned invalid JSON")
+            }
+            console.log("[v0] Music API response data:", data)
 
-        if (!response.ok) {
-          console.error("[v0] Music generation error:", data.error)
-          throw new Error(data.error || "Failed to generate music")
+            if (!response.ok) {
+              console.error("[v0] Music generation error:", data.error)
+              throw new Error(data.error || "Failed to generate music")
+            }
+            
+            break // Success, exit retry loop
+          } catch (error) {
+            lastError = error
+            retries--
+            console.error("[v0] Music generation attempt failed:", error.message, "Retries left:", retries)
+            if (retries > 0) {
+              await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms before retry
+            }
+          }
+        }
+        
+        if (!response) {
+          throw lastError || new Error("Failed to generate music after retries")
         }
 
         const musicMessage = `I'm creating a song based on your description. This typically takes 30-60 seconds. Your music will be ready soon!`
@@ -465,7 +487,7 @@ export function VizzyChat() {
                     {
                       id: data.generationId,
                       title: data.title || "Untitled",
-                      audioUrl: data.audioUrl,
+                      audioUrl: data.audioData ? `data:audio/wav;base64,${data.audioData}` : data.audioUrl,
                       prompt: trimmedInput,
                       status: data.status,
                       createdAt: Date.now(),
