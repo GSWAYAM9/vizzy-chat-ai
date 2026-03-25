@@ -465,7 +465,7 @@ export function VizzyChat() {
                     {
                       id: data.generationId,
                       title: data.title || "Untitled",
-                      audioUrl: data.audioUrl,
+                      audioUrl: data.audioData ? `data:audio/wav;base64,${data.audioData}` : data.audioUrl,
                       prompt: trimmedInput,
                       status: data.status,
                       createdAt: Date.now(),
