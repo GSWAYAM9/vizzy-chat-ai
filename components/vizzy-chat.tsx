@@ -82,8 +82,6 @@ function isMusicGenerationIntent(input: string): boolean {
   console.log("[v0] No music intent detected, returning false")
   return false
 }
-  return false
-}
 
 function isImageGenerationIntent(input: string): boolean {
   const lowerInput = input.toLowerCase().trim()
