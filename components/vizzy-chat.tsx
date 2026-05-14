@@ -77,42 +77,6 @@ function isConversational(input: string): boolean {
 }
 
 // Main chat component
-  
-  // Check if it starts with clear generation intent
-  const hasStrongIntent = strongKeywords.some((keyword) =>
-    lowerInput.includes(keyword)
-  )
-  
-  if (hasStrongIntent) {
-    return true
-  }
-  
-  // For weak keywords, require a strong generation verb nearby
-  const weakKeywords = ["style", "aesthetic", "vibe", "art", "character", "scene", "landscape"]
-  
-  const hasWeakKeyword = weakKeywords.some((keyword) =>
-    lowerInput.includes(keyword)
-  )
-  
-  if (hasWeakKeyword) {
-    const generationPatterns = [
-      /create.*style/i,
-      /generate.*style/i,
-      /make.*style/i,
-      /design.*style/i,
-      /in.*style of/i,
-      /style.*image/i,
-      /make.*character/i,
-      /create.*character/i,
-      /design.*character/i,
-    ]
-    
-    return generationPatterns.some((pattern) => pattern.test(lowerInput))
-  }
-  
-  return false
-}
-
 function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): string {
   const previousImages = messages
     .filter((m) => m.role === "assistant" && m.images && m.images.length > 0)
