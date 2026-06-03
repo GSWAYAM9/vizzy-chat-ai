@@ -26,17 +26,24 @@ function generateId() {
 function isMusicGenerationIntent(input: string): boolean {
   try {
     const lowerInput = input.toLowerCase().trim()
+    console.log("[v0] === MUSIC DETECTION START ===")
+    console.log("[v0] Input:", input)
+    console.log("[v0] LowerInput:", lowerInput)
     
     // Simple music keyword check
     const musicKeywords = ["song", "music", "muisc", "msuic", "compose", "beat", "track", "melody", "create a song", "create music", "generate music"]
+    console.log("[v0] Checking keywords:", musicKeywords)
     
     for (const keyword of musicKeywords) {
-      if (lowerInput.includes(keyword)) {
-        console.log("[v0] Music keyword detected:", keyword)
+      const hasKeyword = lowerInput.includes(keyword)
+      console.log("[v0] Keyword:", keyword, "Found:", hasKeyword)
+      if (hasKeyword) {
+        console.log("[v0] MUSIC MATCH! Returning true")
         return true
       }
     }
     
+    console.log("[v0] NO MUSIC KEYWORDS FOUND - returning false")
     return false
   } catch (error) {
     console.error("[v0] Error in isMusicGenerationIntent:", error)
@@ -68,47 +75,8 @@ function isConversational(input: string): boolean {
   const conversationKeywords = ["tell me", "explain", "what is", "why", "how", "about", "history"]
   return conversationKeywords.some(kw => input.toLowerCase().includes(kw))
 }
-  
-  // Check for variation phrases like "ok lets generate that"
-  if (variationPhrases.some(pattern => pattern.test(lowerInput))) {
-    return true
-  }
-  
-  // Check if it starts with clear generation intent
-  const hasStrongIntent = strongKeywords.some((keyword) =>
-    lowerInput.includes(keyword)
-  )
-  
-  if (hasStrongIntent) {
-    return true
-  }
-  
-  // For weak keywords, require a strong generation verb nearby
-  const weakKeywords = ["style", "aesthetic", "vibe", "art", "character", "scene", "landscape"]
-  
-  const hasWeakKeyword = weakKeywords.some((keyword) =>
-    lowerInput.includes(keyword)
-  )
-  
-  if (hasWeakKeyword) {
-    const generationPatterns = [
-      /create.*style/i,
-      /generate.*style/i,
-      /make.*style/i,
-      /design.*style/i,
-      /in.*style of/i,
-      /style.*image/i,
-      /make.*character/i,
-      /create.*character/i,
-      /design.*character/i,
-    ]
-    
-    return generationPatterns.some((pattern) => pattern.test(lowerInput))
-  }
-  
-  return false
-}
 
+// Main chat component
 function buildRefinedPrompt(messages: ChatMessageType[], newInput: string): string {
   const previousImages = messages
     .filter((m) => m.role === "assistant" && m.images && m.images.length > 0)
@@ -406,7 +374,8 @@ export function VizzyChat() {
           } catch (error) {
             lastError = error
             retries--
-            console.error("[v0] Music generation attempt failed:", error.message, "Retries left:", retries)
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error("[v0] Music generation attempt failed:", errorMessage, "Retries left:", retries)
             if (retries > 0) {
               await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms before retry
             }
