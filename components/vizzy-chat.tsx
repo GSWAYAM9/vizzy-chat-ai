@@ -374,7 +374,8 @@ export function VizzyChat() {
           } catch (error) {
             lastError = error
             retries--
-            console.error("[v0] Music generation attempt failed:", error.message, "Retries left:", retries)
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            console.error("[v0] Music generation attempt failed:", errorMessage, "Retries left:", retries)
             if (retries > 0) {
               await new Promise(resolve => setTimeout(resolve, 500)) // Wait 500ms before retry
             }
